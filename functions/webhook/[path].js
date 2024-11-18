@@ -104,15 +104,15 @@ function shortenUsername(command, name, lastname) {
 async function handler(ctx, update) {
   if (update.callback_query) {
     const callbackData = JSON.parse(update.callback_query.data);
-    const isNotifyPressed = callbackData.command.startsWith("⚡");
+    // const isNotifyPressed = callbackData.command.startsWith("⚡");
     const target = callbackData.command.replace(/^(free-|busy-)/, "");
 
     let notificationText = `${target} updated by ${update.callback_query.from.first_name} ${update.callback_query.from.last_name}`;
 
-    if (isNotifyPressed) {
-      const notifyState = callbackData.notify.includes(update.callback_query.from.id) ? "disabled" : "enabled";
-      notificationText = `${update.callback_query.from.first_name} ${update.callback_query.from.last_name} ${notifyState} notifications`;
-    }
+    // if (isNotifyPressed) {
+      // const notifyState = callbackData.notify.includes(update.callback_query.from.id) ? "disabled" : "enabled";
+      // notificationText = `${update.callback_query.from.first_name} ${update.callback_query.from.last_name} ${notifyState} notifications`;
+    // }
 
     const message = update.callback_query.message;
     const buttons = message.reply_markup.inline_keyboard.flatMap(subitems => {
@@ -131,12 +131,12 @@ async function handler(ctx, update) {
 
     let messageText = buttons.map(button => button.text).join(" ");
 
-    const notifyButton = {
-      text: "⚡",
-      callback_data: JSON.stringify({ command: "⚡", notify: callbackData.notify })
-    };
+    // const notifyButton = {
+    //   text: "⚡",
+    //   callback_data: JSON.stringify({ command: "⚡", notify: callbackData.notify })
+    // };
 
-    buttons.push(notifyButton);
+    // buttons.push(notifyButton);
 
     await editMessageText(
       ctx,
@@ -166,9 +166,9 @@ async function handler(ctx, update) {
 			messageText = buttons.map(button => button.text).join(" ")
 		}
 
-    const notifyButton = { text: "⚡", callback_data: JSON.stringify({ command: "⚡" }) };
+    // const notifyButton = { text: "⚡", callback_data: JSON.stringify({ command: "⚡" }) };
     // todo: add button to a separate row
-    buttons.push(notifyButton);
+    // buttons.push(notifyButton);
 
     return await reply(ctx, update.message.chat.id, messageText, buttons);
   }
