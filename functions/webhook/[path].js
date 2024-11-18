@@ -4,12 +4,7 @@ import {
 
 export function onRequest(context) {
   if (context.params.path == `bot${context.env.BOT_TOKEN}`) {
-    try {
       return bot(context);
-    } catch (error) {
-      console.error(error);
-      return new Response("Internal server error", { status: 500 });
-    }
   }
 
   return new Response("ok", { status: 200 });
@@ -55,13 +50,13 @@ async function showFlashMessage(context, callbackQueryID, text) {
   return new Response(JSON.stringify(response), { status: 200 });
 }
 
-function minifyJson(input) {
-  try {
-    return JSON.stringify(JSON.parse(input));
-  } catch (error) {
-    return input;
-  }
-}
+// function minifyJson(input) {
+//   try {
+//     return JSON.stringify(JSON.parse(input));
+//   } catch (error) {
+//     return input;
+//   }
+// }
 
 function checkStringLimit(input, limit) {
   return input.length <= limit;
@@ -151,7 +146,7 @@ async function handler(ctx, update) {
       { reply_markup: { inline_keyboard: buttons } }
     );
 
-    await answerCbQuery(ctx, update.callback_query.id, notificationText);
+    return await answerCbQuery(ctx, update.callback_query.id, notificationText);
   }
 
   if (update.message && update.message.text.startsWith("/create")) {
