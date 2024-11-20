@@ -125,7 +125,7 @@ async function handlerCallback(ctx, update) {
       });
     });
 
-    await editMessageText(ctx, message.chat.id, message.message_id, message.text, buttons);
+    await editMessageText(ctx, update.callback_query.message.chat.id, update.callback_query.message.message_id, update.callback_query.message.text, buttons);
 
     return await answerCbQuery(ctx, update.callback_query.id, '...');
   } else {
