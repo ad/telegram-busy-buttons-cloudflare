@@ -111,7 +111,7 @@ async function handlerCallback(ctx, update) {
       callbackData.notify = [update.callback_query.from.id];
     }
 
-    const buttons = message.reply_markup.inline_keyboard.map(row => {
+    const buttons = update.callback_query.message.reply_markup.inline_keyboard.map(row => {
       return row.map(button => {
         let cbd = JSON.parse(button.callback_data);
         if (cbd.command.startsWith("⚡")) {
