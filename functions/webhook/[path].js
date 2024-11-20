@@ -111,6 +111,8 @@ async function handlerCallback(ctx, update) {
 
       if (notifyState === "disabled") {
         callbackData.notify = callbackData.notify.filter(id => id !== update.callback_query.from.id);
+      } else {
+        callbackData.notify.push(update.callback_query.from.id);
       }
     } else {
       callbackData.notify = [update.callback_query.from.id];
@@ -120,7 +122,8 @@ async function handlerCallback(ctx, update) {
       return row.map(button => {
         let cbd = JSON.parse(button.callback_data);
         if (cbd.command.startsWith("⚡")) {
-          cbd.notify = callbackData.notify;
+          cbd.notify = callbackData.notify
+          cbd.command = "⚡" + (callbackData.notify.length > 0 ? " " + callbackData.notify.length : "");
         }
 
         return {
@@ -179,10 +182,10 @@ async function handlerMessage(ctx, update) {
       messageText = buttons.map(button => button.text).join(" ");
     }
 
-    // const notifyButton = { text: "⚡", callback_data: JSON.stringify({ command: "⚡" }) };
+    const notifyButton = { text: "⚡", callback_data: JSON.stringify({ command: "⚡", notify: [] }) };
 
     // Add notifyButton to a separate row
-    // buttons = [buttons, [notifyButton]];
+    buttons = [buttons, [notifyButton]];
 
     return await reply(ctx, update.message.chat.id, messageText, buttons);
   }
