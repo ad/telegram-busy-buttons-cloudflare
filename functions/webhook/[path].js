@@ -107,7 +107,26 @@ async function handlerCallback(ctx, update) {
     if (callbackData.notify) {
       // const notifyState = callbackData.notify.includes(update.callback_query.from.id) ? "disabled" : "enabled";
       // const notificationText = `${update.callback_query.from.first_name} ${update.callback_query.from.last_name} ${notifyState} notifications`;
+    } else {
+      callbackData.notify = [update.callback_query.from.id];
     }
+
+    const buttons = message.reply_markup.inline_keyboard.map(row => {
+      return row.map(button => {
+        let cbd = JSON.parse(button.callback_data);
+        if (cbd.command.startsWith("⚡")) {
+          cbd.notify = callbackData.notify;
+        }
+
+        return {
+          text: button.text,
+          callback_data: JSON.stringify(cbd)
+        };
+      });
+    });
+
+    await editMessageText(ctx, message.chat.id, message.message_id, message.text, buttons);
+
     return await answerCbQuery(ctx, update.callback_query.id, '...');
   } else {
     const message = update.callback_query.message;
