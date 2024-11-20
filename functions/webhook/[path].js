@@ -123,7 +123,7 @@ async function handlerCallback(ctx, update) {
         let cbd = JSON.parse(button.callback_data);
         if (cbd.command.startsWith("⚡")) {
           cbd.notify = callbackData.notify
-          cbd.command = "⚡" + (callbackData.notify.length > 0 ? " " + callbackData.notify.length : "");
+          button.text = "⚡" + (callbackData.notify.length > 0 ? " " + callbackData.notify.length : "");
         }
 
         return {
