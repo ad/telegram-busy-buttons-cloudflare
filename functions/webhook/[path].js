@@ -90,7 +90,7 @@ function shortenUsername(command, name, lastname) {
 }
 
 async function handlerCallback(ctx, update) {
-  showFlashMessage(ctx, update.callback_query.id, "...");
+  // showFlashMessage(ctx, update.callback_query.id, "...");
 
   let callbackData;
   try {
@@ -107,8 +107,8 @@ async function handlerCallback(ctx, update) {
     if (callbackData.notify) {
       // const notifyState = callbackData.notify.includes(update.callback_query.from.id) ? "disabled" : "enabled";
       // const notificationText = `${update.callback_query.from.first_name} ${update.callback_query.from.last_name} ${notifyState} notifications`;
-      // return await answerCbQuery(ctx, update.callback_query.id, notificationText);
     }
+    return await answerCbQuery(ctx, update.callback_query.id, '...');
   } else {
     const message = update.callback_query.message;
     const buttons = message.reply_markup.inline_keyboard.map(row => {
@@ -132,8 +132,8 @@ async function handlerCallback(ctx, update) {
     let messageText = buttons.flat().map(button => button.text).join(" ");
     // remove flash from messageText
     messageText = messageText.replace(/ ⚡/g, "");
-    return await editMessageText(ctx, message.chat.id, message.message_id, messageText, buttons);
-    // return await answerCbQuery(ctx, update.callback_query.id, `${target} updated by ${update.callback_query.from.first_name} ${update.callback_query.from.last_name}`);
+    await editMessageText(ctx, message.chat.id, message.message_id, messageText, buttons);
+    return await answerCbQuery(ctx, update.callback_query.id, `${target} updated by ${update.callback_query.from.first_name} ${update.callback_query.from.last_name}`);
   }
 }
 
