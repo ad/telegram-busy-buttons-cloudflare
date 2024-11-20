@@ -104,9 +104,11 @@ async function handlerCallback(ctx, update) {
   // let target = callbackData.command.replace(/^(free-|busy-)/, "");
 
   if (isNotifyPressed) {
-    const notifyState = callbackData.notify.includes(update.callback_query.from.id) ? "disabled" : "enabled";
-    const notificationText = `${update.callback_query.from.first_name} ${update.callback_query.from.last_name} ${notifyState} notifications`;
-    return await answerCbQuery(ctx, update.callback_query.id, notificationText);
+    if (callbackData.notify) {
+      // const notifyState = callbackData.notify.includes(update.callback_query.from.id) ? "disabled" : "enabled";
+      // const notificationText = `${update.callback_query.from.first_name} ${update.callback_query.from.last_name} ${notifyState} notifications`;
+      // return await answerCbQuery(ctx, update.callback_query.id, notificationText);
+    }
   } else {
     const message = update.callback_query.message;
     const buttons = message.reply_markup.inline_keyboard.map(row => {
