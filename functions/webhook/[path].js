@@ -104,9 +104,14 @@ async function handlerCallback(ctx, update) {
   // let target = callbackData.command.replace(/^(free-|busy-)/, "");
 
   if (isNotifyPressed) {
+    let notificationText = '...';
     if (callbackData.notify) {
-      // const notifyState = callbackData.notify.includes(update.callback_query.from.id) ? "disabled" : "enabled";
-      // const notificationText = `${update.callback_query.from.first_name} ${update.callback_query.from.last_name} ${notifyState} notifications`;
+      const notifyState = callbackData.notify.includes(update.callback_query.from.id) ? "disabled" : "enabled";
+      notificationText = `${update.callback_query.from.first_name} ${update.callback_query.from.last_name} ${notifyState} notifications`;
+
+      if (notifyState === "disabled") {
+        callbackData.notify = callbackData.notify.filter(id => id !== update.callback_query.from.id);
+      }
     } else {
       callbackData.notify = [update.callback_query.from.id];
     }
@@ -127,7 +132,7 @@ async function handlerCallback(ctx, update) {
 
     await editMessageText(ctx, update.callback_query.message.chat.id, update.callback_query.message.message_id, update.callback_query.message.text, buttons);
 
-    return await answerCbQuery(ctx, update.callback_query.id, '...');
+    return await answerCbQuery(ctx, update.callback_query.id, notificationText);
   } else {
     const message = update.callback_query.message;
     const buttons = message.reply_markup.inline_keyboard.map(row => {
