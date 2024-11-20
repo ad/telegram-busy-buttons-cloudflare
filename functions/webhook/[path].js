@@ -101,7 +101,7 @@ async function handlerCallback(ctx, update) {
   }
 
   const isNotifyPressed = callbackData.command.startsWith("⚡");
-  // let target = callbackData.command.replace(/^(free-|busy-)/, "");
+  let target = callbackData.command.replace(/^(free-|busy-)/, "");
 
   if (isNotifyPressed) {
     let notificationText = '...';
