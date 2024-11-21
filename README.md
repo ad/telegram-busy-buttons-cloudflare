@@ -28,3 +28,8 @@ docker run --name Wrangler --rm \
 ```
 docker kill Wrangler
 ```
+
+
+### set webhook
+
+https://api.telegram.org/botTOKEN/setWebhook?url=https://yourdomain/webhook/botTOKEN
