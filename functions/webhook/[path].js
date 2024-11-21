@@ -147,6 +147,7 @@ async function handlerCallback(ctx, update) {
           button.text = button.text.startsWith("🟢") ? button.text.replace("🟢", "🏗️") : button.text.replace("🏗️", "🟢");
           cbd.command = cbd.command.startsWith("busy-") ? cbd.command.replace("busy-", "free-") : cbd.command.replace("free-", "busy-");
           cbd.user = shortenUsername(cbd.command, update.callback_query.from.first_name, update.callback_query.from.last_name);
+          target = button.text;
         }
 
         if (button.text.startsWith("⚡")) {
@@ -175,7 +176,8 @@ async function handlerCallback(ctx, update) {
 
         const notifyText = `${target} updated by ${shortenUsername(callbackData.command, update.callback_query.from.first_name, update.callback_query.from.last_name)}`;
 
-        await reply(ctx, id, notifyText);
+
+        await reply(ctx, id, false, notifyText);
       });
     }
 
@@ -187,7 +189,7 @@ async function handlerMessage(ctx, update) {
   if (update.message && update.message.text.startsWith("/create")) {
     const parts = update.message.text.trim().split(/\s+/);
     if (parts.length < 2) {
-      return await reply(ctx, update.message.chat.id, "send command in format /create name1 name2 nameN");
+      return await reply(ctx, update.message.chat.id, update.message.message_thread_id ?? false, "send command in format /create name1 name2 nameN");
     }
 
     let messageText = "";
@@ -206,10 +208,10 @@ async function handlerMessage(ctx, update) {
     // Add notifyButton to a separate row
     buttons = [buttons, [notifyButton]];
 
-    return await reply(ctx, update.message.chat.id, messageText, buttons);
+    return await reply(ctx, update.message.chat.id, update.message.message_thread_id ?? false, messageText, buttons);
   }
 
-  return await reply(ctx, update.message.chat.id, "send command in format /create name1 name2 nameN");
+  return await reply(ctx, update.message.chat.id, update.message.message_thread_id ?? false, "send command in format /create name1 name2 nameN");
 }
 
 async function editMessageText(ctx, chatId, messageId, text, buttons) {
@@ -243,11 +245,15 @@ async function editMessageText(ctx, chatId, messageId, text, buttons) {
   return new Response(await response.text(), { status: 200 });
 }
 
-async function reply(context, chatId, text, buttons) {
+async function reply(context, chatId, message_thread_id, text, buttons) {
   let request = {
     chat_id: chatId,
     text: text,
   };
+
+  if (message_thread_id) {
+    request.message_thread_id = message_thread_id;
+  }
 
   if (buttons) {
     request.reply_markup = {
