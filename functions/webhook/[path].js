@@ -154,7 +154,11 @@ async function handlerCallback(ctx, update) {
         if (button.text.startsWith("⚡")) {
           notifyData = cbd.notify;
         } else {
-          messageText += button.text + " (" + cbd.user + ") ";
+          if (cbd.user && cbd.user != "") {
+            messageText += button.text + " (" + cbd.user + ") ";
+          } else {
+            messageText += button.text + " ";
+          }
         }
 
         // console.log(JSON.stringify(cbd), JSON.stringify(JSON.stringify(cbd)).length);
