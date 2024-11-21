@@ -154,7 +154,7 @@ async function handlerCallback(ctx, update) {
         if (button.text.startsWith("⚡")) {
           notifyData = cbd.notify;
         } else {
-          if (cbd.user && cbd.user != "") {
+          if (cbd.user && cbd.user != "" && cbd.command.startsWith("free-")) {
             messageText += button.text + " (" + cbd.user + ") ";
           } else {
             messageText += button.text + " ";
