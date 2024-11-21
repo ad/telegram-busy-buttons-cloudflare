@@ -140,6 +140,7 @@ async function handlerCallback(ctx, update) {
     let notifyData = [];
 
     const message = update.callback_query.message;
+    let messageText = "";
     const buttons = message.reply_markup.inline_keyboard.map(row => {
       return row.map(button => {
         let cbd = JSON.parse(button.callback_data);
@@ -152,6 +153,8 @@ async function handlerCallback(ctx, update) {
 
         if (button.text.startsWith("⚡")) {
           notifyData = cbd.notify;
+        } else {
+          messageText += button.text + " (" + cbd.user + ") ";
         }
 
         // console.log(JSON.stringify(cbd), JSON.stringify(JSON.stringify(cbd)).length);
@@ -163,9 +166,10 @@ async function handlerCallback(ctx, update) {
       });
     });
 
-    let messageText = buttons.flat().map(button => button.text).join(" ");
-    // remove flash from messageText
-    messageText = messageText.replace(/ ⚡/g, "");
+    if (messageText == "") {
+      messageText = buttons.flat().filter(button => !button.text.startsWith("⚡")).map(button => button.text).join(" ");
+    }
+
     await editMessageText(ctx, message.chat.id, message.message_id, messageText, buttons);
 
     if (notifyData.length > 0) {
