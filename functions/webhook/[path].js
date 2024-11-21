@@ -44,13 +44,13 @@ async function handlerCallback(ctx, update) {
     return new Response("Invalid callback data", { status: 400 });
   }
 
-  const isNotifyPressed = callbackData.command.startsWith("⚡");
-  let target = callbackData.command.replace(/^(free-|busy-)/, "");
+  const isNotifyPressed = callbackData.c.startsWith("⚡");
+  let target = callbackData.c.replace(/^(free-|busy-)/, "");
 
   if (isNotifyPressed) {
     let notificationText = "...";
-    if (callbackData.notify) {
-      const notifyState = callbackData.notify.includes(
+    if (callbackData.n) {
+      const notifyState = callbackData.n.includes(
         update.callback_query.from.id
       )
         ? "disabled"
@@ -58,26 +58,26 @@ async function handlerCallback(ctx, update) {
       notificationText = `${update.callback_query.from.first_name} ${update.callback_query.from.last_name} ${notifyState} notifications`;
 
       if (notifyState === "disabled") {
-        callbackData.notify = callbackData.notify.filter(
+        callbackData.n = callbackData.n.filter(
           (id) => id !== update.callback_query.from.id
         );
       } else {
-        callbackData.notify.push(update.callback_query.from.id);
+        callbackData.n.push(update.callback_query.from.id);
       }
     } else {
-      callbackData.notify = [update.callback_query.from.id];
+      callbackData.n = [update.callback_query.from.id];
     }
 
     const buttons =
       update.callback_query.message.reply_markup?.inline_keyboard.map((row) => {
         return row.map((button) => {
           let cbd = JSON.parse(button.callback_data);
-          if (cbd.command.startsWith("⚡")) {
-            cbd.notify = callbackData.notify;
+          if (cbd.c.startsWith("⚡")) {
+            cbd.n = callbackData.n;
             button.text =
               "⚡" +
-              (callbackData.notify.length > 0
-                ? " " + callbackData.notify.length
+              (callbackData.n.length > 0
+                ? " " + callbackData.n.length
                 : "");
           }
 
@@ -105,15 +105,15 @@ async function handlerCallback(ctx, update) {
     const buttons = message.reply_markup?.inline_keyboard.map((row) => {
       return row.map((button) => {
         let cbd = JSON.parse(button.callback_data);
-        if (cbd.command === callbackData.command) {
+        if (cbd.c === callbackData.c) {
           button.text = button.text.startsWith("🟢")
             ? button.text.replace("🟢", "🏗️")
             : button.text.replace("🏗️", "🟢");
-          cbd.command = cbd.command.startsWith("busy-")
-            ? cbd.command.replace("busy-", "free-")
-            : cbd.command.replace("free-", "busy-");
-          cbd.user = shortenUsername(
-            cbd.command,
+          cbd.c = cbd.c.startsWith("busy-")
+            ? cbd.c.replace("busy-", "free-")
+            : cbd.c.replace("free-", "busy-");
+          cbd.u = shortenUsername(
+            cbd.c,
             update.callback_query.from.first_name,
             update.callback_query.from.last_name
           );
@@ -121,10 +121,10 @@ async function handlerCallback(ctx, update) {
         }
 
         if (button.text.startsWith("⚡")) {
-          notifyData = cbd.notify;
+          notifyData = cbd.n;
         } else {
-          if (cbd.user && cbd.user != "" && cbd.command.startsWith("free-")) {
-            messageText += button.text + " (" + cbd.user + ") ";
+          if (cbd.u && cbd.u != "" && cbd.c.startsWith("free-")) {
+            messageText += button.text + " (" + cbd.u + ") ";
           } else {
             messageText += button.text + " ";
           }
@@ -153,14 +153,14 @@ async function handlerCallback(ctx, update) {
       buttons
     );
 
-    if (notifyData.length > 0) {
+    if (notifyData && notifyData.length > 0) {
       for (const id of notifyData) {
         if (id === update.callback_query.from.id) {
           continue;
         }
 
         const notifyText = `${target} updated by ${shortenUsername(
-          callbackData.command,
+          callbackData.c,
           update.callback_query.from.first_name,
           update.callback_query.from.last_name
         )}`;
