@@ -137,6 +137,8 @@ async function handlerCallback(ctx, update) {
 
     return await answerCbQuery(ctx, update.callback_query.id, notificationText);
   } else {
+    let notifyData = [];
+
     const message = update.callback_query.message;
     const buttons = message.reply_markup.inline_keyboard.map(row => {
       return row.map(button => {
@@ -145,6 +147,10 @@ async function handlerCallback(ctx, update) {
           button.text = button.text.startsWith("🟢") ? button.text.replace("🟢", "🏗️") : button.text.replace("🏗️", "🟢");
           cbd.command = cbd.command.startsWith("busy-") ? cbd.command.replace("busy-", "free-") : cbd.command.replace("free-", "busy-");
           cbd.user = shortenUsername(cbd.command, update.callback_query.from.first_name, update.callback_query.from.last_name);
+        }
+
+        if (button.text.startsWith("⚡")) {
+          notifyData = cbd.notify;
         }
 
         // console.log(JSON.stringify(cbd), JSON.stringify(JSON.stringify(cbd)).length);
@@ -160,6 +166,19 @@ async function handlerCallback(ctx, update) {
     // remove flash from messageText
     messageText = messageText.replace(/ ⚡/g, "");
     await editMessageText(ctx, message.chat.id, message.message_id, messageText, buttons);
+
+    if (notifyData.length > 0) {
+      notifyData.forEach(async id => {
+        if (id === update.callback_query.from.id) {
+          return;
+        }
+
+        const notifyText = `${target} updated by ${shortenUsername(callbackData.command, update.callback_query.from.first_name, update.callback_query.from.last_name)}`;
+
+        await reply(ctx, id, notifyText);
+      });
+    }
+
     return await answerCbQuery(ctx, update.callback_query.id, `${target} updated by ${update.callback_query.from.first_name} ${update.callback_query.from.last_name}`);
   }
 }
