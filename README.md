@@ -11,7 +11,7 @@ bot answers with message+buttons, now you can interact with it
 
 [@busybuttonsbot](https://t.me/busybuttonsbot)
 
-## local run via wrangler
+## Local run via wrangler
 
 ```
 docker run --name Wrangler --rm \
@@ -26,18 +26,23 @@ docker run --name Wrangler --rm \
     ich777/wrangler-dev
 ```
 
-### stop container
+### Stop container
 
 ```
 docker kill Wrangler
 ```
 
-### add secret
+### Add secret
 
 BOT_ADMIN = your_telegram_id
+
 BOT_TOKEN = ...
+
 BOT_DEBUG = true/false
 
-### set webhook
+<img width="760" alt="image" src="https://github.com/user-attachments/assets/47e6469d-13d6-4538-9e78-f462086ec665">
+
+
+### Set webhook
 
 https://api.telegram.org/botTOKEN/setWebhook?url=https://yourdomain/webhook/botTOKEN
