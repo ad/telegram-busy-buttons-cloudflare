@@ -23,16 +23,20 @@ async function bot(context) {
     return await handlerCallback(context, update);
   }
 
-  let response = {
-    method: "sendMessage",
-    text: JSON.stringify(update),
-    chat_id: context.env.BOT_ADMIN,
-  };
+  if (context.env.BOT_DEBUG) {
+    let response = {
+      method: "sendMessage",
+      text: JSON.stringify(update),
+      chat_id: context.env.BOT_ADMIN,
+    };
 
-  return new Response(JSON.stringify(response), {
-    status: 200,
-    headers: new Headers({ "Content-Type": "application/json" }),
-  });
+    return new Response(JSON.stringify(response), {
+      status: 200,
+      headers: new Headers({ "Content-Type": "application/json" }),
+    });
+  }
+
+  return new Response("ok", { status: 200 });
 }
 
 async function handlerCallback(ctx, update) {
