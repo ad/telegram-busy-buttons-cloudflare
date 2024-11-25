@@ -91,7 +91,7 @@ export function shortenUsername(command, name, lastname) {
   }
 
   if (name.length + lastname.length < limit) {
-    return name + " " + lastname;
+    return (name + " " + lastname).trim();
   }
 
   if (name.length > 0) {
