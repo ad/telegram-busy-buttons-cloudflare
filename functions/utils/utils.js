@@ -75,12 +75,12 @@ export function toLatin(str) {
 }
 
 export function shortenUsername(command, name, lastname) {
-  // 33 chars is allocated to struct {"c": "", "u": ""} with \"
+  // 18 chars is allocated to struct {"c": "", "u": ""} with \"
 
-  name = toLatin(name);
-  lastname = toLatin(lastname);
+  name = toLatin(name||'');
+  lastname = toLatin(lastname||'');
 
-  const limit = 64 - 33 - JSON.stringify(command).length;
+  const limit = 64 - 18 - JSON.stringify(command).length;
 
   if (limit <= 0) {
     return "";
