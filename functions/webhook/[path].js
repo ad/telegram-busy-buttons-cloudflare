@@ -206,7 +206,7 @@ async function handlerMessage(ctx, update) {
 
     const notifyButton = {
       text: "⚡",
-      callback_data: JSON.stringify({ c: "⚡", notify: [] }),
+      callback_data: JSON.stringify({ c: "⚡", n: [] }),
     };
 
     buttons = [buttons, [notifyButton]];
