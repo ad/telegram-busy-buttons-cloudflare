@@ -129,6 +129,10 @@ async function handlerCallback(ctx, update) {
         }
 
         if (button.text.startsWith("⚡")) {
+          if (!cbd.n && cbd.notify) {
+            cbd.n = cbd.notify;
+          }
+
           notifyData = cbd.n;
         } else {
           if (cbd.u && cbd.u != "" && cbd.c.startsWith("free-")) {
