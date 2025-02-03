@@ -156,7 +156,6 @@ async function handlerCallback(ctx, update) {
           `error ${error}`
         );
       }
-      }
     }
 
     await editMessageText(
