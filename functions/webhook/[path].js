@@ -12,6 +12,10 @@ async function bot(context) {
   const update = await context.request.json();
   console.log("update", update);
 
+  if (context.env.BOT_DEBUG) {
+    return await messageLogger(context, update);
+  }
+
   if (update.message && update.message.text) {
     if (
       update.message.text.startsWith(`/start`) ||
@@ -21,10 +25,6 @@ async function bot(context) {
     }
   } else if (update.callback_query) {
     return await handlerCallback(context, update);
-  }
-
-  if (context.env.BOT_DEBUG) {
-    return await messageLogger(context, update);
   }
 
   return new Response("ok", { status: 200 });
