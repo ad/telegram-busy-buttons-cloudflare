@@ -48,7 +48,11 @@ async function handlerCallback(ctx, update) {
     return new Response("Invalid callback data", { status: 400 });
   }
 
-  const isNotifyPressed = callbackData.c.startsWith("⚡");
+  if (!callbackData.c && callbackData.command) {
+    callbackData.c = callbackData.command;
+  }
+
+  const isNotifyPressed = (callbackData.c && callbackData.c.startsWith("⚡"));
   let target = callbackData.c.replace(/^(free-|busy-)/, "");
 
   if (isNotifyPressed) {
