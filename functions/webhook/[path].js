@@ -113,6 +113,10 @@ async function handlerCallback(ctx, update) {
     const buttons = message.reply_markup?.inline_keyboard.map((row) => {
       return row.map((button) => {
         let cbd = JSON.parse(button.callback_data);
+        if (!cbd.c && cbd.command) {
+          cbd.c = cbd.command;
+        }
+
         if (cbd.c === callbackData.c) {
           button.text = button.text.startsWith("🟢")
             ? button.text.replace("🟢", "🏗️")
