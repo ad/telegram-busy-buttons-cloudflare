@@ -24,19 +24,50 @@ async function bot(context) {
   }
 
   if (context.env.BOT_DEBUG) {
-    let response = {
-      method: "sendMessage",
-      text: JSON.stringify(update),
-      chat_id: context.env.BOT_ADMIN,
-    };
-
-    return new Response(JSON.stringify(response), {
-      status: 200,
-      headers: new Headers({ "Content-Type": "application/json" }),
-    });
+    return await messageLogger(context, update);
   }
 
   return new Response("ok", { status: 200 });
+}
+
+// this function should send text message with detailed information about the update    
+async function messageLogger(context, update) {
+  let text = "";
+
+  if (update.message) {
+    text = `Message from ${update.message.from.first_name} ${update.message.from.last_name} (${update.message.from.id})\n`;
+    text += `Chat id: ${update.message.chat.id}\n`;
+    text += `Text: ${update.message.text}\n`;
+  }
+
+  if (update.callback_query) {
+    text = `Callback query from ${update.callback_query.from.first_name} ${update.callback_query.from.last_name} (${update.callback_query.from.id})\n`;
+    text += `Chat id: ${update.callback_query.message.chat.id}\n`;
+    text += `Text: ${update.callback_query.message.text}\n`;
+    text += `Data: ${update.callback_query.data}\n`;
+  }
+
+  // edited message
+  if (update.edited_message) {
+    text = `Edited message from ${update.edited_message.from.first_name } ${update.edited_message.from.last_name} (${update.edited_message.from.id})\n`;
+    text += `Chat id: ${update.edited_message.chat.id}\n`;
+    text += `Text: ${update.edited_message.text}\n`;
+  }
+
+  if (text == "") {
+    text = JSON.stringify(update);
+  }
+
+  let response = {
+    method: "sendMessage",
+    text: text,
+    chat_id: context.env.BOT_ADMIN,
+  };
+
+  return new Response(JSON.stringify(response), {
+    status: 200,
+    headers: new Headers({ "Content-Type": "application/json" }),
+  });
 }
 
 async function handlerCallback(ctx, update) {
