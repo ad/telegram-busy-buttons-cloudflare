@@ -144,7 +144,7 @@ async function handlerCallback(ctx, update) {
     if (messageText == "") {
       messageText = buttons
         .flat()
-        .filter((button) => !button.text.startsWith("⚡"))
+        .filter((button) => (button.text && !button.text.startsWith("⚡")))
         .map((button) => button.text)
         .join(" ");
     }
