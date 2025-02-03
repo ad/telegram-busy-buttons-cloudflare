@@ -263,6 +263,8 @@ async function handlerMessage(ctx, update) {
 
     buttons = [buttons, [notifyButton]];
 
+    console.log("buttons", messageText, buttons);
+
     return await reply(
       ctx,
       update.message.chat.id,
