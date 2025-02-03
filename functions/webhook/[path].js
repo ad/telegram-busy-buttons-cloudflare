@@ -196,7 +196,7 @@ async function handlerMessage(ctx, update) {
     let messageText = "";
 
     let buttons = parts.slice(1).map((name) => {
-      const callbackData = JSON.stringify({ command: `busy-${name}` });
+      const callbackData = JSON.stringify({ c: `busy-${name}` });
       return { text: `🟢${name}`, callback_data: callbackData };
     });
 
@@ -206,7 +206,7 @@ async function handlerMessage(ctx, update) {
 
     const notifyButton = {
       text: "⚡",
-      callback_data: JSON.stringify({ command: "⚡", notify: [] }),
+      callback_data: JSON.stringify({ c: "⚡", notify: [] }),
     };
 
     buttons = [buttons, [notifyButton]];
