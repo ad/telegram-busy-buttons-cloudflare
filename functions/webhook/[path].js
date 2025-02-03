@@ -142,11 +142,21 @@ async function handlerCallback(ctx, update) {
     }) || [];
 
     if (messageText == "") {
+      try {
       messageText = buttons
         .flat()
         .filter((button) => (button.text && !button.text.startsWith("⚡")))
         .map((button) => button.text)
         .join(" ");
+      } catch (error) {
+        console.error("Error parsing messageText", error);
+        return await answerCbQuery(
+          ctx,
+          update.callback_query.id,
+          `error ${error}`
+        );
+      }
+      }
     }
 
     await editMessageText(
