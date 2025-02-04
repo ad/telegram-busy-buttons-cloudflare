@@ -13,7 +13,7 @@ async function bot(context) {
   console.log("update", update);
 
   if (context.env.BOT_DEBUG) {
-    return await messageLogger(context, update);
+    await messageLogger(context, update);
   }
 
   if (update.message && update.message.text) {
