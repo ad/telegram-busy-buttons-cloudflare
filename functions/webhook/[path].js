@@ -155,7 +155,7 @@ async function handlerCallback(ctx, update) {
     const message = update.callback_query.message;
     let messageText = "";
 
-    // Переложить все кнопки в отдельные строки и добавить ask для занятых
+    // Переложить все кнопки в отдельные строки и добавить ask только к занятым
     const flatButtons = (message.reply_markup?.inline_keyboard || []).flat();
     const buttons = [];
     for (const button of flatButtons) {
@@ -165,9 +165,6 @@ async function handlerCallback(ctx, update) {
       }
 
       let row = [];
-      let isBusy = false;
-      let busyUserId = null;
-      let busyUserName = null;
 
       if (cbd.c === callbackData.c) {
         button.text = button.text.startsWith("🟢")
@@ -184,14 +181,7 @@ async function handlerCallback(ctx, update) {
         target = button.text;
       }
 
-      // Определяем, занята ли кнопка
-      if (cbd.c && cbd.c.startsWith("busy-")) {
-        isBusy = true;
-        busyUserId = cbd.u && cbd.u.id ? cbd.u.id : update.callback_query.from.id;
-        busyUserName = cbd.u && cbd.u.name ? cbd.u.name : `${update.callback_query.from.first_name || ""} ${update.callback_query.from.last_name || ""}`;
-      }
-
-      // Формируем текст для messageText
+      // messageText формируем только по основным кнопкам
       if (button.text.startsWith("⚡")) {
         if (!cbd.n && cbd.notify) {
           cbd.n = cbd.notify;
@@ -211,8 +201,10 @@ async function handlerCallback(ctx, update) {
         callback_data: JSON.stringify(cbd),
       });
 
-      // Если кнопка занята, добавить ask-кнопку
-      if (isBusy) {
+      // Добавлять ask только к занятым кнопкам (🏗️ или busy-)
+      if (cbd.c && cbd.c.startsWith("busy-")) {
+        // Определяем id пользователя, который занял кнопку
+        let busyUserId = (typeof cbd.u === "object" && cbd.u.id) ? cbd.u.id : update.callback_query.from.id;
         row.push({
           text: "🙇",
           callback_data: JSON.stringify({
