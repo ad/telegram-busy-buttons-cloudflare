@@ -159,11 +159,14 @@ async function handlerCallback(ctx, update) {
     const flatButtons = (message.reply_markup?.inline_keyboard || []).flat();
     const buttons = [];
     for (const button of flatButtons) {
-      // Гарантируем, что button.text и button.callback_data определены
-      const btnText = (button && typeof button.text === "string") ? button.text : "";
+      // Гарантируем, что button определён и имеет text и callback_data
+      if (!button || typeof button.text !== "string" || typeof button.callback_data !== "string") {
+        continue;
+      }
+      const btnText = button.text;
       let cbd;
       try {
-        cbd = (button && typeof button.callback_data === "string") ? JSON.parse(button.callback_data) : {};
+        cbd = JSON.parse(button.callback_data);
       } catch (e) {
         continue;
       }
