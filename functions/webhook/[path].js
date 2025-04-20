@@ -181,28 +181,18 @@ async function handlerCallback(ctx, update) {
         target = button.text;
       }
 
-      // messageText формируем только по основным кнопкам
-      if (button.text.startsWith("⚡")) {
-        if (!cbd.n && cbd.notify) {
-          cbd.n = cbd.notify;
-        }
-        notifyData = cbd.n;
-      } else {
-        if (cbd.u && cbd.u != "" && cbd.c.startsWith("free-")) {
-          messageText += button.text + " (" + cbd.u + ") ";
-        } else {
-          messageText += button.text + " ";
-        }
-      }
-
       // Основная кнопка
       row.push({
         text: button.text,
         callback_data: JSON.stringify(cbd),
       });
 
-      // Добавлять ask только к занятым кнопкам (🏗️ или busy-)
-      if (cbd.c && cbd.c.startsWith("busy-")) {
+      // Добавлять ask только к кнопкам, которые имеют статус 🏗️ и callback c начинается с free-
+      if (
+        button.text.startsWith("🏗️") &&
+        cbd.c &&
+        cbd.c.startsWith("free-")
+      ) {
         // Определяем id пользователя, который занял кнопку
         let busyUserId = (typeof cbd.u === "object" && cbd.u.id) ? cbd.u.id : update.callback_query.from.id;
         row.push({
