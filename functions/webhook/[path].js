@@ -159,10 +159,11 @@ async function handlerCallback(ctx, update) {
     const flatButtons = (message.reply_markup?.inline_keyboard || []).flat();
     const buttons = [];
     for (const button of flatButtons) {
-      const btnText = typeof button.text === "string" ? button.text : "";
+      // Гарантируем, что button.text и button.callback_data определены
+      const btnText = (button && typeof button.text === "string") ? button.text : "";
       let cbd;
       try {
-        cbd = typeof button.callback_data === "string" ? JSON.parse(button.callback_data) : {};
+        cbd = (button && typeof button.callback_data === "string") ? JSON.parse(button.callback_data) : {};
       } catch (e) {
         continue;
       }
@@ -175,51 +176,50 @@ async function handlerCallback(ctx, update) {
 
       let row = [];
 
-      // Сохраняем исходный статус кнопки ДО изменений
-      const wasFreeBusy =
-        btnText.startsWith("🏗️") &&
-        typeof cbd.c === "string" &&
-        cbd.c.startsWith("free-");
-
-      // Применяем изменения только к нажатой кнопке
-      let newText = button.text;
+      // Определяем, будет ли кнопка после этого действия в состоянии 🏗️ и free-
+      let willBeBusyFree = false;
+      let newText = btnText;
       let newCbd = { ...cbd };
+
       if (cbd.c === callbackData.c) {
+        // Меняем статус только для нажатой кнопки
         if (btnText.startsWith("🟢")) {
           newText = btnText.replace("🟢", "🏗️");
+          newCbd.c = cbd.c.replace("busy-", "free-");
         } else if (btnText.startsWith("🏗️")) {
           newText = btnText.replace("🏗️", "🟢");
+          newCbd.c = cbd.c.replace("free-", "busy-");
         }
-        newCbd.c = cbd.c.startsWith("busy-")
-          ? cbd.c.replace("busy-", "free-")
-          : cbd.c.replace("free-", "busy-");
         newCbd.u = shortenUsername(
           newCbd.c,
           update.callback_query.from.first_name,
           update.callback_query.from.last_name
         );
         target = newText;
+        // Проверяем, будет ли кнопка после этого действия в нужном состоянии
+        willBeBusyFree = newText.startsWith("🏗️") && typeof newCbd.c === "string" && newCbd.c.startsWith("free-");
+      } else {
+        // Для остальных кнопок состояние не меняется
+        willBeBusyFree = btnText.startsWith("🏗️") && typeof cbd.c === "string" && cbd.c.startsWith("free-");
       }
 
       // Основная кнопка
       row.push({
-        text: cbd.c === callbackData.c ? newText : button.text,
+        text: cbd.c === callbackData.c ? newText : btnText,
         callback_data: JSON.stringify(cbd.c === callbackData.c ? newCbd : cbd),
       });
 
-      // Добавлять ask только если кнопка (до изменений) была 🏗️ и free-
-      // и если она не была только что изменена (т.е. не текущий callback)
-      if (
-        wasFreeBusy &&
-        !(cbd.c === callbackData.c)
-      ) {
-        let busyUserId = (typeof cbd.u === "object" && cbd.u.id) ? cbd.u.id : update.callback_query.from.id;
+      // Добавлять ask только если кнопка после этого действия в состоянии 🏗️ и free-
+      if (willBeBusyFree) {
+        let busyUserId = (typeof (cbd.c === callbackData.c ? newCbd.u : cbd.u) === "object" && (cbd.c === callbackData.c ? newCbd.u.id : cbd.u.id))
+          ? (cbd.c === callbackData.c ? newCbd.u.id : cbd.u.id)
+          : update.callback_query.from.id;
         row.push({
           text: "🙇",
           callback_data: JSON.stringify({
             action: "ask",
             to: busyUserId,
-            target: btnText.replace("🏗️", "").replace("🟢", "")
+            target: (cbd.c === callbackData.c ? newText : btnText).replace("🏗️", "").replace("🟢", "")
           }),
         });
       }
