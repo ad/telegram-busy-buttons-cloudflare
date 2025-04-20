@@ -176,14 +176,10 @@ async function handlerCallback(ctx, update) {
 
       let row = [];
 
-      // Определяем, была ли изменена эта кнопка в текущем callback
-      const isJustChanged =
-        cbd.c === callbackData.c &&
-        (
-          (btnText.startsWith("🟢") && button.text && button.text.startsWith("🏗️")) ||
-          (btnText.startsWith("🏗️") && button.text && button.text.startsWith("🟢"))
-        );
+      // Сохраняем исходный статус кнопки ДО изменений
+      const wasBusy = btnText.startsWith("🏗️") && typeof cbd.c === "string" && cbd.c.startsWith("free-");
 
+      // Применяем изменения только к нажатой кнопке
       if (cbd.c === callbackData.c) {
         if (btnText.startsWith("🟢")) {
           button.text = btnText.replace("🟢", "🏗️");
@@ -207,15 +203,9 @@ async function handlerCallback(ctx, update) {
         callback_data: JSON.stringify(cbd),
       });
 
-      // Добавлять ask только к кнопкам, которые имеют статус 🏗️ и callback c начинается с free-
-      // и только если кнопка не была изменена текущим действием (т.е. не только что занята/освобождена)
-      let addAsk = (
-        btnText.startsWith("🏗️") &&
-        typeof cbd.c === "string" &&
-        cbd.c.startsWith("free-") &&
-        !isJustChanged
-      );
-      if (addAsk) {
+      // Добавлять ask только к кнопкам, которые были заняты ДО текущего действия (т.е. были 🏗️ и free-)
+      // Это гарантирует, что ask появится сразу после любого изменения статуса любой кнопки
+      if (wasBusy) {
         let busyUserId = (typeof cbd.u === "object" && cbd.u.id) ? cbd.u.id : update.callback_query.from.id;
         row.push({
           text: "🙇",
