@@ -159,7 +159,6 @@ async function handlerCallback(ctx, update) {
     const flatButtons = (message.reply_markup?.inline_keyboard || []).flat();
     const buttons = [];
     for (const button of flatButtons) {
-      // Безопасно получаем текст и callback_data
       const btnText = typeof button.text === "string" ? button.text : "";
       let cbd;
       try {
@@ -177,35 +176,43 @@ async function handlerCallback(ctx, update) {
       let row = [];
 
       // Сохраняем исходный статус кнопки ДО изменений
-      const wasBusy = btnText.startsWith("🏗️") && typeof cbd.c === "string" && cbd.c.startsWith("free-");
+      const wasFreeBusy =
+        btnText.startsWith("🏗️") &&
+        typeof cbd.c === "string" &&
+        cbd.c.startsWith("free-");
 
       // Применяем изменения только к нажатой кнопке
+      let newText = button.text;
+      let newCbd = { ...cbd };
       if (cbd.c === callbackData.c) {
         if (btnText.startsWith("🟢")) {
-          button.text = btnText.replace("🟢", "🏗️");
+          newText = btnText.replace("🟢", "🏗️");
         } else if (btnText.startsWith("🏗️")) {
-          button.text = btnText.replace("🏗️", "🟢");
+          newText = btnText.replace("🏗️", "🟢");
         }
-        cbd.c = cbd.c.startsWith("busy-")
+        newCbd.c = cbd.c.startsWith("busy-")
           ? cbd.c.replace("busy-", "free-")
           : cbd.c.replace("free-", "busy-");
-        cbd.u = shortenUsername(
-          cbd.c,
+        newCbd.u = shortenUsername(
+          newCbd.c,
           update.callback_query.from.first_name,
           update.callback_query.from.last_name
         );
-        target = button.text;
+        target = newText;
       }
 
       // Основная кнопка
       row.push({
-        text: button.text,
-        callback_data: JSON.stringify(cbd),
+        text: cbd.c === callbackData.c ? newText : button.text,
+        callback_data: JSON.stringify(cbd.c === callbackData.c ? newCbd : cbd),
       });
 
-      // Добавлять ask только к кнопкам, которые были заняты ДО текущего действия (т.е. были 🏗️ и free-)
-      // Это гарантирует, что ask появится сразу после любого изменения статуса любой кнопки
-      if (wasBusy) {
+      // Добавлять ask только если кнопка (до изменений) была 🏗️ и free-
+      // и если она не была только что изменена (т.е. не текущий callback)
+      if (
+        wasFreeBusy &&
+        !(cbd.c === callbackData.c)
+      ) {
         let busyUserId = (typeof cbd.u === "object" && cbd.u.id) ? cbd.u.id : update.callback_query.from.id;
         row.push({
           text: "🙇",
