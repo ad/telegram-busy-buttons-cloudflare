@@ -188,12 +188,14 @@ async function handlerCallback(ctx, update) {
       });
 
       // Добавлять ask только к кнопкам, которые имеют статус 🏗️ и callback c начинается с free-
+      // и только если кнопка сейчас действительно в состоянии "занято" (🏗️ и free-)
       if (
         button.text.startsWith("🏗️") &&
         cbd.c &&
-        cbd.c.startsWith("free-")
+        cbd.c.startsWith("free-") &&
+        // не добавлять ask если только что переключили на 🟢
+        !(cbd.c === callbackData.c && button.text.startsWith("🟢"))
       ) {
-        // Определяем id пользователя, который занял кнопку
         let busyUserId = (typeof cbd.u === "object" && cbd.u.id) ? cbd.u.id : update.callback_query.from.id;
         row.push({
           text: "🙇",
@@ -205,8 +207,12 @@ async function handlerCallback(ctx, update) {
         });
       }
 
-      // Каждая кнопка (и ask если есть) на отдельной строке
-      buttons.push(row);
+      // Только если в ряду больше одной кнопки (основная + ask), добавляем строку
+      if (row.length > 1) {
+        buttons.push(row);
+      } else {
+        buttons.push([row[0]]);
+      }
     }
 
     if (messageText == "") {
