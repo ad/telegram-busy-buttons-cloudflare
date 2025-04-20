@@ -159,7 +159,17 @@ async function handlerCallback(ctx, update) {
     const flatButtons = (message.reply_markup?.inline_keyboard || []).flat();
     const buttons = [];
     for (const button of flatButtons) {
-      let cbd = JSON.parse(button.callback_data);
+      // Безопасно получаем текст и callback_data
+      const btnText = typeof button.text === "string" ? button.text : "";
+      let cbd;
+      try {
+        cbd = typeof button.callback_data === "string" ? JSON.parse(button.callback_data) : {};
+      } catch (e) {
+        continue;
+      }
+      if (!cbd || (!cbd.c && !cbd.command)) {
+        continue;
+      }
       if (!cbd.c && cbd.command) {
         cbd.c = cbd.command;
       }
@@ -167,9 +177,11 @@ async function handlerCallback(ctx, update) {
       let row = [];
 
       if (cbd.c === callbackData.c) {
-        button.text = button.text.startsWith("🟢")
-          ? button.text.replace("🟢", "🏗️")
-          : button.text.replace("🏗️", "🟢");
+        if (btnText.startsWith("🟢")) {
+          button.text = btnText.replace("🟢", "🏗️");
+        } else if (btnText.startsWith("🏗️")) {
+          button.text = btnText.replace("🏗️", "🟢");
+        }
         cbd.c = cbd.c.startsWith("busy-")
           ? cbd.c.replace("busy-", "free-")
           : cbd.c.replace("free-", "busy-");
@@ -190,11 +202,10 @@ async function handlerCallback(ctx, update) {
       // Добавлять ask только к кнопкам, которые имеют статус 🏗️ и callback c начинается с free-
       // и только если кнопка сейчас действительно в состоянии "занято" (🏗️ и free-)
       let addAsk = (
-        button.text.startsWith("🏗️") &&
-        cbd.c &&
+        btnText.startsWith("🏗️") &&
+        typeof cbd.c === "string" &&
         cbd.c.startsWith("free-") &&
-        // не добавлять ask если только что переключили на 🟢
-        !(cbd.c === callbackData.c && button.text.startsWith("🟢"))
+        !(cbd.c === callbackData.c && btnText.startsWith("🟢"))
       );
       if (addAsk) {
         let busyUserId = (typeof cbd.u === "object" && cbd.u.id) ? cbd.u.id : update.callback_query.from.id;
@@ -203,14 +214,13 @@ async function handlerCallback(ctx, update) {
           callback_data: JSON.stringify({
             action: "ask",
             to: busyUserId,
-            target: button.text.replace("🏗️", "").replace("🟢", "")
+            target: btnText.replace("🏗️", "").replace("🟢", "")
           }),
         });
       }
 
       // Добавляем строку только если она не состоит только из ask-кнопки
       if (row.length === 1 && row[0].text === "🙇") {
-        // не добавлять строку, если только ask
         continue;
       }
       buttons.push(row);
