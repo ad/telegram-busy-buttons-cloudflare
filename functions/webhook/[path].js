@@ -252,21 +252,23 @@ async function handlerMessage(ctx, update) {
 
     let messageText = "";
 
+    // Каждая кнопка теперь в отдельном ряду
     let buttons = parts.slice(1).map((name) => {
       const callbackData = JSON.stringify({ c: `busy-${name}` });
-      return { text: `🟢${name}`, callback_data: callbackData };
+      return [{ text: `🟢${name}`, callback_data: callbackData }];
     });
 
     if (buttons.length > 0) {
-      messageText = buttons.map((button) => button.text).join(" ");
+      messageText = buttons.map((row) => row[0].text).join(" ");
     }
 
-    const notifyButton = {
+    const notifyButton = [{
       text: "⚡",
       callback_data: JSON.stringify({ c: "⚡", n: [] }),
-    };
+    }];
 
-    buttons = [buttons, [notifyButton]];
+    // Кнопка уведомлений также на отдельной строке
+    buttons.push(notifyButton);
 
     console.log("buttons", messageText, buttons);
 
