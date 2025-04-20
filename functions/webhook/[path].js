@@ -176,6 +176,14 @@ async function handlerCallback(ctx, update) {
 
       let row = [];
 
+      // Определяем, была ли изменена эта кнопка в текущем callback
+      const isJustChanged =
+        cbd.c === callbackData.c &&
+        (
+          (btnText.startsWith("🟢") && button.text && button.text.startsWith("🏗️")) ||
+          (btnText.startsWith("🏗️") && button.text && button.text.startsWith("🟢"))
+        );
+
       if (cbd.c === callbackData.c) {
         if (btnText.startsWith("🟢")) {
           button.text = btnText.replace("🟢", "🏗️");
@@ -200,12 +208,12 @@ async function handlerCallback(ctx, update) {
       });
 
       // Добавлять ask только к кнопкам, которые имеют статус 🏗️ и callback c начинается с free-
-      // и только если кнопка сейчас действительно в состоянии "занято" (🏗️ и free-)
+      // и только если кнопка не была изменена текущим действием (т.е. не только что занята/освобождена)
       let addAsk = (
         btnText.startsWith("🏗️") &&
         typeof cbd.c === "string" &&
         cbd.c.startsWith("free-") &&
-        !(cbd.c === callbackData.c && btnText.startsWith("🟢"))
+        !isJustChanged
       );
       if (addAsk) {
         let busyUserId = (typeof cbd.u === "object" && cbd.u.id) ? cbd.u.id : update.callback_query.from.id;
