@@ -84,6 +84,16 @@ async function handlerCallback(ctx, update) {
     return new Response("Invalid callback data", { status: 400 });
   }
 
+  // --- Новый обработчик ask ---
+  if (callbackData.action === "ask" && callbackData.to) {
+    // Отправить сообщение пользователю, который занял кнопку
+    const from = update.callback_query.from;
+    const askText = `Пользователь ${from.first_name || ""} ${from.last_name || ""} (${from.id}) просит освободить "${callbackData.target}" если уже не нужно.`;
+    await reply(ctx, callbackData.to, false, askText);
+    return await answerCbQuery(ctx, update.callback_query.id, "Запрос отправлен");
+  }
+  // --- конец нового обработчика ---
+
   if (!callbackData.c && callbackData.command) {
     callbackData.c = callbackData.command;
   }
@@ -145,13 +155,19 @@ async function handlerCallback(ctx, update) {
     const message = update.callback_query.message;
     let messageText = "";
 
-    // Переложить все кнопки в отдельные строки
+    // Переложить все кнопки в отдельные строки и добавить ask для занятых
     const flatButtons = (message.reply_markup?.inline_keyboard || []).flat();
-    const buttons = flatButtons.map((button) => {
+    const buttons = [];
+    for (const button of flatButtons) {
       let cbd = JSON.parse(button.callback_data);
       if (!cbd.c && cbd.command) {
         cbd.c = cbd.command;
       }
+
+      let row = [];
+      let isBusy = false;
+      let busyUserId = null;
+      let busyUserName = null;
 
       if (cbd.c === callbackData.c) {
         button.text = button.text.startsWith("🟢")
@@ -168,6 +184,14 @@ async function handlerCallback(ctx, update) {
         target = button.text;
       }
 
+      // Определяем, занята ли кнопка
+      if (cbd.c && cbd.c.startsWith("busy-")) {
+        isBusy = true;
+        busyUserId = cbd.u && cbd.u.id ? cbd.u.id : update.callback_query.from.id;
+        busyUserName = cbd.u && cbd.u.name ? cbd.u.name : `${update.callback_query.from.first_name || ""} ${update.callback_query.from.last_name || ""}`;
+      }
+
+      // Формируем текст для messageText
       if (button.text.startsWith("⚡")) {
         if (!cbd.n && cbd.notify) {
           cbd.n = cbd.notify;
@@ -181,19 +205,35 @@ async function handlerCallback(ctx, update) {
         }
       }
 
-      return [{
+      // Основная кнопка
+      row.push({
         text: button.text,
         callback_data: JSON.stringify(cbd),
-      }];
-    });
+      });
+
+      // Если кнопка занята, добавить ask-кнопку
+      if (isBusy) {
+        row.push({
+          text: "🙇",
+          callback_data: JSON.stringify({
+            action: "ask",
+            to: busyUserId,
+            target: button.text.replace("🏗️", "").replace("🟢", "")
+          }),
+        });
+      }
+
+      // Каждая кнопка (и ask если есть) на отдельной строке
+      buttons.push(row);
+    }
 
     if (messageText == "") {
       try {
-      messageText = buttons
-        .flat()
-        .filter((button) => (button.text && !button.text.startsWith("⚡")))
-        .map((button) => button.text)
-        .join(" ");
+        messageText = buttons
+          .flat()
+          .filter((button) => (button.text && !button.text.startsWith("⚡") && button.text !== "🙇"))
+          .map((button) => button.text)
+          .join(" ");
       } catch (error) {
         console.error("Error parsing messageText", error);
         return await answerCbQuery(
@@ -253,6 +293,7 @@ async function handlerMessage(ctx, update) {
     // Каждая кнопка теперь в отдельном ряду
     let buttons = parts.slice(1).map((name) => {
       const callbackData = JSON.stringify({ c: `busy-${name}` });
+      // Только одна кнопка (свободная) на старте, без ask
       return [{ text: `🟢${name}`, callback_data: callbackData }];
     });
 
@@ -265,7 +306,6 @@ async function handlerMessage(ctx, update) {
       callback_data: JSON.stringify({ c: "⚡", n: [] }),
     }];
 
-    // Кнопка уведомлений также на отдельной строке
     buttons.push(notifyButton);
 
     console.log("buttons", messageText, buttons);
@@ -338,7 +378,7 @@ async function reply(context, chatId, message_thread_id, text, buttons) {
     `https://api.telegram.org/bot${context.env.BOT_TOKEN}/sendMessage`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json" }),
       body: JSON.stringify(request),
     }
   );
