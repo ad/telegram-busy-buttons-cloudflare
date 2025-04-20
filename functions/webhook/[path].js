@@ -189,13 +189,14 @@ async function handlerCallback(ctx, update) {
 
       // Добавлять ask только к кнопкам, которые имеют статус 🏗️ и callback c начинается с free-
       // и только если кнопка сейчас действительно в состоянии "занято" (🏗️ и free-)
-      if (
+      let addAsk = (
         button.text.startsWith("🏗️") &&
         cbd.c &&
         cbd.c.startsWith("free-") &&
         // не добавлять ask если только что переключили на 🟢
         !(cbd.c === callbackData.c && button.text.startsWith("🟢"))
-      ) {
+      );
+      if (addAsk) {
         let busyUserId = (typeof cbd.u === "object" && cbd.u.id) ? cbd.u.id : update.callback_query.from.id;
         row.push({
           text: "🙇",
@@ -207,12 +208,12 @@ async function handlerCallback(ctx, update) {
         });
       }
 
-      // Только если в ряду больше одной кнопки (основная + ask), добавляем строку
-      if (row.length > 1) {
-        buttons.push(row);
-      } else {
-        buttons.push([row[0]]);
+      // Добавляем строку только если она не состоит только из ask-кнопки
+      if (row.length === 1 && row[0].text === "🙇") {
+        // не добавлять строку, если только ask
+        continue;
       }
+      buttons.push(row);
     }
 
     if (messageText == "") {
