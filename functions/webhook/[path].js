@@ -112,25 +112,23 @@ async function handlerCallback(ctx, update) {
       callbackData.n = [update.callback_query.from.id];
     }
 
-    const buttons =
-      update.callback_query.message.reply_markup?.inline_keyboard.map((row) => {
-        return row.map((button) => {
-          let cbd = JSON.parse(button.callback_data);
-          if (cbd.c.startsWith("⚡")) {
-            cbd.n = callbackData.n;
-            button.text =
-              "⚡" +
-              (callbackData.n.length > 0
-                ? " " + callbackData.n.length
-                : "");
-          }
-
-          return {
-            text: button.text,
-            callback_data: JSON.stringify(cbd),
-          };
-        });
-      }) || [];
+    // Переложить все кнопки в отдельные строки
+    const flatButtons = (update.callback_query.message.reply_markup?.inline_keyboard || []).flat();
+    const buttons = flatButtons.map((button) => {
+      let cbd = JSON.parse(button.callback_data);
+      if (cbd.c.startsWith("⚡")) {
+        cbd.n = callbackData.n;
+        button.text =
+          "⚡" +
+          (callbackData.n.length > 0
+            ? " " + callbackData.n.length
+            : "");
+      }
+      return [{
+        text: button.text,
+        callback_data: JSON.stringify(cbd),
+      }];
+    });
 
     await editMessageText(
       ctx,
@@ -146,48 +144,48 @@ async function handlerCallback(ctx, update) {
 
     const message = update.callback_query.message;
     let messageText = "";
-    const buttons = message.reply_markup?.inline_keyboard.map((row) => {
-      return row.map((button) => {
-        let cbd = JSON.parse(button.callback_data);
-        if (!cbd.c && cbd.command) {
-          cbd.c = cbd.command;
+
+    // Переложить все кнопки в отдельные строки
+    const flatButtons = (message.reply_markup?.inline_keyboard || []).flat();
+    const buttons = flatButtons.map((button) => {
+      let cbd = JSON.parse(button.callback_data);
+      if (!cbd.c && cbd.command) {
+        cbd.c = cbd.command;
+      }
+
+      if (cbd.c === callbackData.c) {
+        button.text = button.text.startsWith("🟢")
+          ? button.text.replace("🟢", "🏗️")
+          : button.text.replace("🏗️", "🟢");
+        cbd.c = cbd.c.startsWith("busy-")
+          ? cbd.c.replace("busy-", "free-")
+          : cbd.c.replace("free-", "busy-");
+        cbd.u = shortenUsername(
+          cbd.c,
+          update.callback_query.from.first_name,
+          update.callback_query.from.last_name
+        );
+        target = button.text;
+      }
+
+      if (button.text.startsWith("⚡")) {
+        if (!cbd.n && cbd.notify) {
+          cbd.n = cbd.notify;
         }
-
-        if (cbd.c === callbackData.c) {
-          button.text = button.text.startsWith("🟢")
-            ? button.text.replace("🟢", "🏗️")
-            : button.text.replace("🏗️", "🟢");
-          cbd.c = cbd.c.startsWith("busy-")
-            ? cbd.c.replace("busy-", "free-")
-            : cbd.c.replace("free-", "busy-");
-          cbd.u = shortenUsername(
-            cbd.c,
-            update.callback_query.from.first_name,
-            update.callback_query.from.last_name
-          );
-          target = button.text;
-        }
-
-        if (button.text.startsWith("⚡")) {
-          if (!cbd.n && cbd.notify) {
-            cbd.n = cbd.notify;
-          }
-
-          notifyData = cbd.n;
+        notifyData = cbd.n;
+      } else {
+        if (cbd.u && cbd.u != "" && cbd.c.startsWith("free-")) {
+          messageText += button.text + " (" + cbd.u + ") ";
         } else {
-          if (cbd.u && cbd.u != "" && cbd.c.startsWith("free-")) {
-            messageText += button.text + " (" + cbd.u + ") ";
-          } else {
-            messageText += button.text + " ";
-          }
+          messageText += button.text + " ";
         }
+      }
 
-        return {
-          text: button.text,
-          callback_data: JSON.stringify(cbd),
-        };
-      });
-    }) || [];
+      return [{
+        text: button.text,
+        callback_data: JSON.stringify(cbd),
+      }];
+    });
 
     if (messageText == "") {
       try {
