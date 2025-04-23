@@ -122,23 +122,20 @@ async function handlerCallback(ctx, update) {
       callbackData.n = [update.callback_query.from.id];
     }
 
-    // Переложить все кнопки в отдельные строки
-    const flatButtons = (update.callback_query.message.reply_markup?.inline_keyboard || []).flat();
-    const buttons = flatButtons.map((button) => {
-      let cbd = JSON.parse(button.callback_data);
-      if (cbd.c && cbd.c.startsWith("⚡")) {
-        cbd.n = callbackData.n;
-        button.text =
-          "⚡" +
-          (callbackData.n.length > 0
-            ? " " + callbackData.n.length
-            : "");
-      }
-      return [{
-        text: button.text,
-        callback_data: JSON.stringify(cbd),
-      }];
-    });
+    // Перебираем строки и кнопки, меняем только текст нужной кнопки
+    const buttons = (update.callback_query.message.reply_markup?.inline_keyboard || []).map(row =>
+      row.map(button => {
+        let cbd = JSON.parse(button.callback_data);
+        if (cbd.c && cbd.c.startsWith("⚡")) {
+          cbd.n = callbackData.n;
+          return {
+            text: "⚡" + (callbackData.n.length > 0 ? " " + callbackData.n.length : ""),
+            callback_data: JSON.stringify(cbd),
+          };
+        }
+        return button;
+      })
+    );
 
     await editMessageText(
       ctx,
