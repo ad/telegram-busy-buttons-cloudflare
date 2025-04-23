@@ -126,7 +126,7 @@ async function handlerCallback(ctx, update) {
     const flatButtons = (update.callback_query.message.reply_markup?.inline_keyboard || []).flat();
     const buttons = flatButtons.map((button) => {
       let cbd = JSON.parse(button.callback_data);
-      if (cbd.c.startsWith("⚡")) {
+      if (cbd.c && cbd.c.startsWith("⚡")) {
         cbd.n = callbackData.n;
         button.text =
           "⚡" +
