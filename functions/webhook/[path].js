@@ -215,7 +215,7 @@ async function handlerCallback(ctx, update) {
           
           // Replace icon and add user info
           // const buttonName = btnText.substring(1); // Remove the 🟢 icon
-          newText = btnText.replace("🟢", "🏗️") + userDisplay;
+          newText = btnText.replace("🟢", "🏗️") + ' ' + userDisplay;
           newCbd.c = cbd.c.replace("busy-", "free-");
         } else if (btnText.startsWith("🏗️")) {
           // When freeing resource, just change icon and remove any user info
