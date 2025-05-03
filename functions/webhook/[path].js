@@ -185,9 +185,28 @@ async function handlerCallback(ctx, update) {
         // Меняем статус только для нажатой кнопки
         if (btnText.startsWith("🟢")) {
           newText = btnText.replace("🟢", "🏗️");
+
+          // Get user info for display
+          let userDisplay = "";
+          const user = update.callback_query.from;
+          
+          if (user.first_name || user.last_name) {
+            userDisplay = `${user.first_name || ""} ${user.last_name || ""}`.trim();
+          } else if (user.username) {
+            userDisplay = '@' + user.username;
+          } else {
+            userDisplay = 'id' + user.id.toString();
+          }
+          
+          // Replace icon and add user info
+          const buttonName = btnText.substring(1); // Remove the 🟢 icon
+          newText = `🏗️${buttonName} ${userDisplay}`;
           newCbd.c = cbd.c.replace("busy-", "free-");
         } else if (btnText.startsWith("🏗️")) {
-          newText = btnText.replace("🏗️", "🟢");
+          // When freeing resource, just change icon and remove any user info
+          const buttonNameParts = btnText.substring(1).split(" (");
+          const buttonName = buttonNameParts[0];
+          newText = `🟢${buttonName}`;
           newCbd.c = cbd.c.replace("free-", "busy-");
         }
         newCbd.u = shortenUsername(
