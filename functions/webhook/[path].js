@@ -219,8 +219,7 @@ async function handlerCallback(ctx, update) {
           newCbd.c = cbd.c.replace("busy-", "free-");
         } else if (btnText.startsWith("🏗️")) {
           // When freeing resource, just change icon and remove any user info
-          const buttonNameParts = btnText.split(" ", 2);
-          newText = btnText.replace("🏗️", "🟢") + (buttonNameParts[1] || "");
+          newText = btnText.replace("🏗️", "🟢") + btnText.split(" ").shift();
           newCbd.c = cbd.c.replace("free-", "busy-");
         }
         newCbd.u = shortenUsername(
