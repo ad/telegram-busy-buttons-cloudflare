@@ -205,7 +205,9 @@ async function handlerCallback(ctx, update) {
           
           if (user.first_name || user.last_name) {
             userDisplay = `${user.first_name || ""} ${user.last_name || ""}`.trim();
-          } else if (user.username) {
+          }
+          
+          if (userDisplay.trim() == '' && user.username) {
             userDisplay = '@' + user.username;
           } else {
             userDisplay = 'id' + user.id.toString();
