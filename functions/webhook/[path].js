@@ -98,11 +98,11 @@ async function handlerCallback(ctx, update) {
   }
 
   // --- Новый обработчик ask ---
-  if (callbackData.action === "ask" && callbackData.to) {
+  if (callbackData.a === "ask" && callbackData.t) {
     // Отправить сообщение пользователю, который занял кнопку
     const from = update.callback_query.from;
-    const askText = `Пользователь ${from.first_name || ""} ${from.last_name || ""} (${from.id}) просит освободить "${callbackData.target}" если уже не нужно.`;
-    await reply(ctx, callbackData.to, false, askText);
+    const askText = `Пользователь ${from.first_name || ""} ${from.last_name || ""} (${from.id}) просит освободить "${callbackData.b}" если уже не нужно.`;
+    await reply(ctx, callbackData.t, false, askText);
     return await answerCbQuery(ctx, update.callback_query.id, "Запрос отправлен");
   }
   // --- конец нового обработчика ---
@@ -249,9 +249,9 @@ async function handlerCallback(ctx, update) {
         row.push({
           text: "🙇",
           callback_data: JSON.stringify({
-            action: "ask",
-            to: busyUserId,
-            target: (cbd.c === callbackData.c ? newText : btnText).replace("🏗️", "").replace("🟢", "")
+            a: "ask",
+            t: busyUserId,
+            b: (cbd.c === callbackData.c ? newText : btnText).replace("🏗️", "").replace("🟢", "")
           }),
         });
       }
@@ -294,11 +294,21 @@ async function handlerCallback(ctx, update) {
           continue;
         }
 
-        const notifyText = `${target} updated by ${shortenUsername(
-          callbackData.c,
-          update.callback_query.from.first_name,
-          update.callback_query.from.last_name
-        )}`;
+        // Get user info for display
+        let userDisplayUpdater = "";
+        const userUpdater = update.callback_query.from;
+        
+        if (userUpdater.first_name || userUpdater.last_name) {
+          userDisplayUpdater = `${userUpdater.first_name || ""} ${userUpdater.last_name || ""}`.trim();
+        }
+        
+        if (userDisplayUpdater.trim() == '' && userUpdater.username) {
+          userDisplayUpdater = '@' + userUpdater.username;
+        } else {
+          userDisplayUpdater = 'id' + userUpdater.id.toString();
+        }
+        
+        const notifyText = `${target} updated by ${userDisplayUpdater}`;
 
         await reply(ctx, id, false, notifyText);
       }
