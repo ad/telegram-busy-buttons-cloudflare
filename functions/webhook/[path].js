@@ -122,7 +122,7 @@ async function handlerCallback(ctx, update) {
       )
         ? "disabled"
         : "enabled";
-      notificationText = `${update.callback_query.from.first_name} ${update.callback_query.from.last_name} ${notifyState} notifications`;
+      notificationText = `Notifications ${notifyState}`;
 
       if (notifyState === "disabled") {
         callbackData.n = callbackData.n.filter(
