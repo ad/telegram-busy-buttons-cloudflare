@@ -317,7 +317,7 @@ async function handlerCallback(ctx, update) {
     return await answerCbQuery(
       ctx,
       update.callback_query.id,
-      `${target} updated by ${update.callback_query.from.first_name} ${update.callback_query.from.last_name}`
+      `${target} updated`
     );
   }
 }
