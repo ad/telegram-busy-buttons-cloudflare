@@ -24,7 +24,20 @@ async function bot(context) {
       return await handlerMessage(context, update);
     }
   } else if (update.callback_query) {
-    return await handlerCallback(context, update);
+    try {
+      return await handlerCallback(context, update);
+    } catch (error) {
+      let response = {
+        method: "sendMessage",
+        text: error.message,
+        chat_id: context.env.BOT_ADMIN,
+      };
+  
+      return new Response(JSON.stringify(response), {
+        status: 200,
+        headers: new Headers({ "Content-Type": "application/json" }),
+      });
+    }
   }
 
   return new Response("ok", { status: 200 });
