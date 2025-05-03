@@ -197,7 +197,7 @@ async function handlerCallback(ctx, update) {
       if (cbd.c === callbackData.c) {
         // Меняем статус только для нажатой кнопки
         if (btnText.startsWith("🟢")) {
-          newText = btnText.replace("🟢", "🏗️");
+          // newText = btnText.replace("🟢", "🏗️");
 
           // Get user info for display
           let userDisplay = "";
@@ -212,14 +212,13 @@ async function handlerCallback(ctx, update) {
           }
           
           // Replace icon and add user info
-          const buttonName = btnText.substring(1); // Remove the 🟢 icon
-          newText = `🏗️${buttonName} ${userDisplay}`;
+          // const buttonName = btnText.substring(1); // Remove the 🟢 icon
+          newText = btnText.replace("🟢", "🏗️") + userDisplay;
           newCbd.c = cbd.c.replace("busy-", "free-");
         } else if (btnText.startsWith("🏗️")) {
           // When freeing resource, just change icon and remove any user info
-          const buttonNameParts = btnText.substring(1).split(" (");
-          const buttonName = buttonNameParts[0];
-          newText = `🟢${buttonName}`;
+          const buttonNameParts = btnText.split(" ", 2);
+          newText = btnText.replace("🏗️", "🟢") + (buttonNameParts[1] || "");
           newCbd.c = cbd.c.replace("free-", "busy-");
         }
         newCbd.u = shortenUsername(
