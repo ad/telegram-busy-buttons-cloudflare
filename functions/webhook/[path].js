@@ -209,7 +209,9 @@ async function handlerCallback(ctx, update) {
           
           if (userDisplay.trim() == '' && user.username) {
             userDisplay = '@' + user.username;
-          } else {
+          }
+          if (userDisplay.trim() == '') {
+            // Fallback to user ID if no name or username is available
             userDisplay = 'id' + user.id.toString();
           }
           
@@ -304,8 +306,11 @@ async function handlerCallback(ctx, update) {
         
         if (userDisplayUpdater.trim() == '' && userUpdater.username) {
           userDisplayUpdater = '@' + userUpdater.username;
-        } else {
-          userDisplayUpdater = 'id' + userUpdater.id.toString();
+        }
+        
+        if (userDisplay.trim() == '') {
+          // Fallback to user ID if no name or username is available
+          userDisplay = 'id' + userUpdater.id.toString();
         }
         
         const notifyText = `${target} updated by ${userDisplayUpdater}`;
