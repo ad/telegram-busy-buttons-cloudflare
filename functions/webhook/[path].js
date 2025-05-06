@@ -158,7 +158,11 @@ async function handlerCallback(ctx, update) {
       buttons
     );
 
-    console.log("editMessageResult", editMessageResult);
+    try {
+      console.log("editMessageResult", editMessageResult.json());
+    } catch (error) {
+      console.error("Error parsing editMessageResult", error);
+    }
 
     return await answerCbQuery(ctx, update.callback_query.id, notificationText);
   } else {
@@ -292,7 +296,11 @@ async function handlerCallback(ctx, update) {
       buttons
     );
 
-    console.log("editMessageResult", editMessageResult);
+    try {
+      console.log("editMessageResult", editMessageResult.json());
+    } catch (error) {
+      console.error("Error parsing editMessageResult", error);
+    }
 
     if (notifyData && notifyData.length > 0) {
       for (const id of notifyData) {
