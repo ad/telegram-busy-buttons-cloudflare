@@ -230,11 +230,12 @@ async function handlerCallback(ctx, update) {
           newText = btnText.split(" ").shift().replace("🏗️", "🟢");
           newCbd.c = cbd.c.replace("free-", "busy-");
         }
-        newCbd.u = shortenUsername(
+        newCbd.u = user.id.toString();
+        /*shortenUsername(
           newCbd.c,
           update.callback_query.from.first_name,
           update.callback_query.from.last_name
-        );
+        );*/
         target = newText;
         // Проверяем, будет ли кнопка после этого действия в нужном состоянии
         willBeBusyFree = newText.startsWith("🏗️") && typeof newCbd.c === "string" && newCbd.c.startsWith("free-");
@@ -403,6 +404,8 @@ async function editMessageText(ctx, chatId, messageId, text, buttons) {
     };
   }
 
+  console.log("request", JSON.stringify(request));
+
   const response = await fetch(
     `https://api.telegram.org/bot${ctx.env.BOT_TOKEN}/editMessageText`,
     {
@@ -414,9 +417,9 @@ async function editMessageText(ctx, chatId, messageId, text, buttons) {
 
   if (response.status === 200) {
     return new Response(await response.text(), { status: 200 });
+  } else {
+    console.error("Error editing message:", await response.text());
   }
-
-  console.log("request", JSON.stringify(request));
 
   return new Response(await response.text(), { status: 200 });
 }
