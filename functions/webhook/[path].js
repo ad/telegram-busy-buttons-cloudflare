@@ -261,7 +261,7 @@ async function handlerCallback(ctx, update) {
           callback_data: JSON.stringify({
             a: "ask",
             t: busyUserId,
-            b: (cbd.c === callbackData.c ? newText : btnText).replace("🏗️", "").replace("🟢", "")
+            b: (cbd.c === callbackData.c ? newText : btnText).split(" ").shift().replace("🏗️", "").replace("🟢", "")
           }),
         });
       }
