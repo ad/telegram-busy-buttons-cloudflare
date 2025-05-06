@@ -159,7 +159,7 @@ async function handlerCallback(ctx, update) {
     );
 
     try {
-      console.log("editMessageResult", editMessageResult.json());
+      console.log("editMessageResult", await editMessageResult.json());
     } catch (error) {
       console.error("Error parsing editMessageResult", error);
     }
@@ -297,7 +297,7 @@ async function handlerCallback(ctx, update) {
     );
 
     try {
-      console.log("editMessageResult", editMessageResult.json());
+      console.log("editMessageResult", await editMessageResult.json());
     } catch (error) {
       console.error("Error parsing editMessageResult", error);
     }
