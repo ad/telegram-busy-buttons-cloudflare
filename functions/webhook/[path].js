@@ -199,6 +199,7 @@ async function handlerCallback(ctx, update) {
       let willBeBusyFree = false;
       let newText = btnText;
       let newCbd = { ...cbd };
+      const user = update.callback_query.from;
 
       if (cbd.c === callbackData.c) {
         // Меняем статус только для нажатой кнопки
@@ -207,7 +208,6 @@ async function handlerCallback(ctx, update) {
 
           // Get user info for display
           let userDisplay = "";
-          const user = update.callback_query.from;
           
           if (user.first_name || user.last_name) {
             userDisplay = `${user.first_name || ""} ${user.last_name || ""}`.trim();
@@ -218,7 +218,7 @@ async function handlerCallback(ctx, update) {
           }
           if (userDisplay.trim() == '') {
             // Fallback to user ID if no name or username is available
-            userDisplay = 'id' + user.id.toString();
+            userDisplay = 'id' + user.id;
           }
           
           // Replace icon and add user info
@@ -230,7 +230,8 @@ async function handlerCallback(ctx, update) {
           newText = btnText.split(" ").shift().replace("🏗️", "🟢");
           newCbd.c = cbd.c.replace("free-", "busy-");
         }
-        newCbd.u = user.id.toString();
+
+        newCbd.u = user.id;
         /*shortenUsername(
           newCbd.c,
           update.callback_query.from.first_name,
