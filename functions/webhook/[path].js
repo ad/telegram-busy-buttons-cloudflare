@@ -150,13 +150,15 @@ async function handlerCallback(ctx, update) {
       })
     );
 
-    await editMessageText(
+    let editMessageResult = await editMessageText(
       ctx,
       update.callback_query.message.chat.id,
       update.callback_query.message.message_id,
       update.callback_query.message.text,
       buttons
     );
+
+    console.log("editMessageResult", editMessageResult);
 
     return await answerCbQuery(ctx, update.callback_query.id, notificationText);
   } else {
@@ -282,13 +284,15 @@ async function handlerCallback(ctx, update) {
       }
     }
 
-    await editMessageText(
+    let editMessageResult = await editMessageText(
       ctx,
       message.chat.id,
       message.message_id,
       messageText,
       buttons
     );
+
+    console.log("editMessageResult", editMessageResult);
 
     if (notifyData && notifyData.length > 0) {
       for (const id of notifyData) {
