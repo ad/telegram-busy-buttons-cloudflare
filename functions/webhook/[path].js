@@ -253,8 +253,8 @@ async function handlerCallback(ctx, update) {
 
       // Добавлять ask только если кнопка после этого действия в состоянии 🏗️ и free-
       if (willBeBusyFree) {
-        let busyUserId = (typeof (cbd.c === callbackData.c ? newCbd.u : cbd.u) === "object" && (cbd.c === callbackData.c ? newCbd.u.id : cbd.u.id))
-          ? (cbd.c === callbackData.c ? newCbd.u.id : cbd.u.id)
+        let busyUserId = (typeof (cbd.c === callbackData.c ? newCbd.u : cbd.u) === "object" && (cbd.c === callbackData.c ? newCbd.u : cbd.u))
+          ? (cbd.c === callbackData.c ? newCbd.u : cbd.u)
           : update.callback_query.from.id;
         row.push({
           text: "🙇",
