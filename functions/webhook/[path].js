@@ -173,6 +173,22 @@ async function handlerCallback(ctx, update) {
 
     // Переложить все кнопки в отдельные строки и добавить ask только к занятым
     const flatButtons = (message.reply_markup?.inline_keyboard || []).flat();
+    for (const button of flatButtons) {
+      if (!button || typeof button.callback_data !== "string") {
+        continue;
+      }
+      let cbd;
+      try {
+        cbd = JSON.parse(button.callback_data);
+      } catch (e) {
+        continue;
+      }
+      if (cbd && typeof cbd.c === "string" && cbd.c.startsWith("⚡")) {
+        if (Array.isArray(cbd.n)) {
+          notifyData = cbd.n;
+        }
+      }
+    }
     const buttons = [];
     for (const button of flatButtons) {
       // Гарантируем, что button определён и имеет text и callback_data
@@ -322,12 +338,18 @@ async function handlerCallback(ctx, update) {
           userDisplayUpdater = '@' + userUpdater.username;
         }
         
-        if (userDisplay.trim() == '') {
+        if (userDisplayUpdater.trim() == '') {
           // Fallback to user ID if no name or username is available
-          userDisplay = 'id' + userUpdater.id.toString();
+          userDisplayUpdater = 'id' + userUpdater.id.toString();
         }
         
         const notifyText = `${target} updated by ${userDisplayUpdater}`;
+
+        console.log("notify", {
+          to: id,
+          from: userUpdater.id,
+          text: notifyText,
+        });
 
         await reply(ctx, id, false, notifyText);
       }
