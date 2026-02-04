@@ -247,13 +247,13 @@ async function handlerCallback(ctx, update) {
           newText = btnText.replace("🟢", "🏗️") + ' ' + userDisplay;
           newCbd.c = cbd.c.replace("busy-", "free-");
           newCbd.u = user.id;
-          notifyAction = "освобождает";
+          notifyAction = "занимает";
         } else if (btnText.startsWith("🏗️")) {
           // When freeing resource, just change icon and remove any user info
           newText = btnText.split(" ").shift().replace("🏗️", "🟢");
           newCbd.c = cbd.c.replace("free-", "busy-");
           delete newCbd.u;
-          notifyAction = "занимает";
+          notifyAction = "освобождает";
         }
 
         target = newText;
