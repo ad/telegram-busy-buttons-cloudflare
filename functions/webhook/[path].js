@@ -165,6 +165,8 @@ async function handlerCallback(ctx, update) {
     return await answerCbQuery(ctx, update.callback_query.id, notificationText);
   } else {
     let notifyData = [];
+    let notifyTargetName = callbackData.c.replace(/^(free-|busy-)/, "");
+    let notifyAction = "updated";
 
     const message = update.callback_query.message;
     let messageText = "";
@@ -239,14 +241,17 @@ async function handlerCallback(ctx, update) {
           // const buttonName = btnText.substring(1); // Remove the 🟢 icon
           newText = btnText.replace("🟢", "🏗️") + ' ' + userDisplay;
           newCbd.c = cbd.c.replace("busy-", "free-");
+          notifyAction = "occupied";
         } else if (btnText.startsWith("🏗️")) {
           // When freeing resource, just change icon and remove any user info
           newText = btnText.split(" ").shift().replace("🏗️", "🟢");
           newCbd.c = cbd.c.replace("free-", "busy-");
+          notifyAction = "freed";
         }
 
         newCbd.u = user.id;
         target = newText;
+        notifyTargetName = newText.split(" ").shift().replace("🏗️", "").replace("🟢", "");
         // Проверяем, будет ли кнопка после этого действия в нужном состоянии
         willBeBusyFree = newText.startsWith("🏗️") && typeof newCbd.c === "string" && newCbd.c.startsWith("free-");
       } else {
@@ -336,7 +341,7 @@ async function handlerCallback(ctx, update) {
           userDisplayUpdater = 'id' + userUpdater.id.toString();
         }
         
-        const notifyText = `${target} updated by ${userDisplayUpdater}`;
+        const notifyText = `${userDisplayUpdater} ${notifyAction} ${notifyTargetName}`;
 
         console.log("notify", {
           to: id,
