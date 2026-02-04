@@ -99,8 +99,13 @@ async function handlerCallback(ctx, update) {
   if (callbackData.a === "ask" && callbackData.t) {
     // Отправить сообщение пользователю, который занял кнопку
     const from = update.callback_query.from;
+    const targetId = typeof callbackData.t === "string" ? Number(callbackData.t) : callbackData.t;
+    if (targetId === from.id) {
+      const funnyText = "Ты только что попросил себя освободить. Попробуй договориться с зеркалом.";
+      return await answerCbQuery(ctx, update.callback_query.id, funnyText);
+    }
     const askText = `Пользователь ${from.first_name || ""} ${from.last_name || ""} (${from.id}) просит освободить "${callbackData.b}" если уже не нужно.`;
-    await reply(ctx, callbackData.t, false, askText);
+    await reply(ctx, targetId, false, askText);
     return await answerCbQuery(ctx, update.callback_query.id, "Запрос отправлен");
   }
   // --- конец нового обработчика ---
@@ -166,7 +171,7 @@ async function handlerCallback(ctx, update) {
   } else {
     let notifyData = [];
     let notifyTargetName = callbackData.c.replace(/^(free-|busy-)/, "");
-    let notifyAction = "updated";
+    let notifyAction = "обновляет";
 
     const message = update.callback_query.message;
     let messageText = "";
@@ -241,15 +246,16 @@ async function handlerCallback(ctx, update) {
           // const buttonName = btnText.substring(1); // Remove the 🟢 icon
           newText = btnText.replace("🟢", "🏗️") + ' ' + userDisplay;
           newCbd.c = cbd.c.replace("busy-", "free-");
-          notifyAction = "occupied";
+          newCbd.u = user.id;
+          notifyAction = "освобождает";
         } else if (btnText.startsWith("🏗️")) {
           // When freeing resource, just change icon and remove any user info
           newText = btnText.split(" ").shift().replace("🏗️", "🟢");
           newCbd.c = cbd.c.replace("free-", "busy-");
-          notifyAction = "freed";
+          delete newCbd.u;
+          notifyAction = "занимает";
         }
 
-        newCbd.u = user.id;
         target = newText;
         notifyTargetName = newText.split(" ").shift().replace("🏗️", "").replace("🟢", "");
         // Проверяем, будет ли кнопка после этого действия в нужном состоянии
@@ -267,17 +273,20 @@ async function handlerCallback(ctx, update) {
 
       // Добавлять ask только если кнопка после этого действия в состоянии 🏗️ и free-
       if (willBeBusyFree) {
-        let busyUserId = (typeof (cbd.c === callbackData.c ? newCbd.u : cbd.u) === "object" && (cbd.c === callbackData.c ? newCbd.u : cbd.u))
-          ? (cbd.c === callbackData.c ? newCbd.u : cbd.u)
-          : update.callback_query.from.id;
-        row.push({
-          text: "🙇",
-          callback_data: JSON.stringify({
-            a: "ask",
-            t: busyUserId,
-            b: (cbd.c === callbackData.c ? newText : btnText).split(" ").shift().replace("🏗️", "").replace("🟢", "")
-          }),
-        });
+        let busyUserId = (cbd.c === callbackData.c ? newCbd.u : cbd.u);
+        if (typeof busyUserId === "string" && /^[0-9]+$/.test(busyUserId)) {
+          busyUserId = Number(busyUserId);
+        }
+        if (typeof busyUserId === "number") {
+          row.push({
+            text: "🙇",
+            callback_data: JSON.stringify({
+              a: "ask",
+              t: busyUserId,
+              b: (cbd.c === callbackData.c ? newText : btnText).split(" ").shift().replace("🏗️", "").replace("🟢", "")
+            }),
+          });
+        }
       }
 
       // Добавляем строку только если она не состоит только из ask-кнопки
