@@ -1,5 +1,3 @@
-import { shortenUsername } from "../utils/utils.js";
-
 export function onRequest(context) {
   if (context.params.path == `bot${context.env.BOT_TOKEN}`) {
     return bot(context);
@@ -248,11 +246,6 @@ async function handlerCallback(ctx, update) {
         }
 
         newCbd.u = user.id;
-        /*shortenUsername(
-          newCbd.c,
-          update.callback_query.from.first_name,
-          update.callback_query.from.last_name
-        );*/
         target = newText;
         // Проверяем, будет ли кнопка после этого действия в нужном состоянии
         willBeBusyFree = newText.startsWith("🏗️") && typeof newCbd.c === "string" && newCbd.c.startsWith("free-");
