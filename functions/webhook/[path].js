@@ -266,10 +266,15 @@ async function handlerCallback(ctx, update) {
       }
 
       // Основная кнопка
-      row.push({
-        text: cbd.c === callbackData.c ? newText : btnText,
+      const mainButtonText = cbd.c === callbackData.c ? newText : btnText;
+      const mainButton = {
+        text: mainButtonText,
         callback_data: JSON.stringify(cbd.c === callbackData.c ? newCbd : cbd),
-      });
+      };
+      if (mainButtonText.startsWith("🏗️")) {
+        mainButton.style = "danger";
+      }
+      row.push(mainButton);
 
       // Добавлять ask только если кнопка после этого действия в состоянии 🏗️ и free-
       if (willBeBusyFree) {
