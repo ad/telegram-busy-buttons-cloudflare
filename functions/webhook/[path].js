@@ -441,13 +441,11 @@ async function editMessageText(ctx, chatId, messageId, text, buttons) {
     }
   );
 
-  if (response.status === 200) {
-    return new Response(await response.text(), { status: 200 });
-  } else {
-    console.error("Error editing message:", await response.text());
+  const responseText = await response.text();
+  if (response.status !== 200) {
+    console.error("Error editing message:", responseText);
   }
-
-  return new Response(await response.text(), { status: 200 });
+  return new Response(responseText, { status: 200 });
 }
 
 async function reply(context, chatId, message_thread_id, text, buttons) {
