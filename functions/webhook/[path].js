@@ -229,7 +229,7 @@ async function handlerCallback(ctx, update) {
 
       let willBeBusyFree = false;
       // Убираем иконки из текста кнопки (для обратной совместимости со старыми кнопками)
-      let newText = btnText.replace(/^[🟢🏗️]\s*/, "").trim();
+      let newText = btnText.replace(/^(?:🟢|🏗️)\s*/u, "").trim();
       let newCbd = { ...cbd };
       const user = update.callback_query.from;
 
