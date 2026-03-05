@@ -86,9 +86,15 @@ async function messageLogger(context, update) {
   }
 }
 
+function hasVisibleText(str) {
+  // Remove common invisible/whitespace characters including Hangul Filler (U+3164) etc.
+  return str.replace(/[\s\u00A0\u3164\uFFA0\u2000-\u200F\u2028\u2029]/g, "").length > 0;
+}
+
 function getUserDisplay(user) {
-  if (user.first_name || user.last_name) {
-    return `${user.first_name || ""} ${user.last_name || ""}`.trim();
+  const fullName = `${user.first_name || ""} ${user.last_name || ""}`.trim();
+  if (fullName && hasVisibleText(fullName)) {
+    return fullName;
   }
   if (user.username) {
     return '@' + user.username;
