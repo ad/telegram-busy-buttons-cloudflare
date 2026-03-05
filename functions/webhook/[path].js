@@ -30,7 +30,7 @@ async function bot(context) {
         text: error.message,
         chat_id: context.env.BOT_ADMIN,
       };
-  
+
       return new Response(JSON.stringify(response), {
         status: 200,
         headers: new Headers({ "Content-Type": "application/json" }),
@@ -41,7 +41,7 @@ async function bot(context) {
   return new Response("ok", { status: 200 });
 }
 
-// this function should send text message with detailed information about the update    
+// this function should send text message with detailed information about the update
 async function messageLogger(context, update) {
   try {
     let text = "";
@@ -86,6 +86,16 @@ async function messageLogger(context, update) {
   }
 }
 
+function getUserDisplay(user) {
+  if (user.first_name || user.last_name) {
+    return `${user.first_name || ""} ${user.last_name || ""}`.trim();
+  }
+  if (user.username) {
+    return '@' + user.username;
+  }
+  return 'id' + user.id;
+}
+
 async function handlerCallback(ctx, update) {
   let callbackData;
   try {
@@ -104,7 +114,8 @@ async function handlerCallback(ctx, update) {
       const funnyText = "Ты только что попросил себя освободить. Попробуй договориться с зеркалом.";
       return await answerCbQuery(ctx, update.callback_query.id, funnyText);
     }
-    const askText = `Пользователь ${from.first_name || ""} ${from.last_name || ""} (${from.id}) просит освободить "${callbackData.b}" если уже не нужно.`;
+    const fromDisplay = getUserDisplay(from);
+    const askText = `Пользователь ${fromDisplay} просит освободить "${callbackData.b}" если уже не нужно.`;
     await reply(ctx, targetId, false, askText);
     return await answerCbQuery(ctx, update.callback_query.id, "Запрос отправлен");
   }
@@ -216,67 +227,54 @@ async function handlerCallback(ctx, update) {
 
       let row = [];
 
-      // Определяем, будет ли кнопка после этого действия в состоянии 🏗️ и free-
       let willBeBusyFree = false;
-      let newText = btnText;
+      // Убираем иконки из текста кнопки (для обратной совместимости со старыми кнопками)
+      let newText = btnText.replace(/^[🟢🏗️]\s*/, "").trim();
       let newCbd = { ...cbd };
       const user = update.callback_query.from;
 
       if (cbd.c === callbackData.c) {
-        // Меняем статус только для нажатой кнопки
-        if (btnText.startsWith("🟢")) {
-          // newText = btnText.replace("🟢", "🏗️");
-
-          // Get user info for display
-          let userDisplay = "";
-          
-          if (user.first_name || user.last_name) {
-            userDisplay = `${user.first_name || ""} ${user.last_name || ""}`.trim();
-          }
-          
-          if (userDisplay.trim() == '' && user.username) {
-            userDisplay = '@' + user.username;
-          }
-          if (userDisplay.trim() == '') {
-            // Fallback to user ID if no name or username is available
-            userDisplay = 'id' + user.id;
-          }
-          
-          // Replace icon and add user info
-          // const buttonName = btnText.substring(1); // Remove the 🟢 icon
-          newText = btnText.replace("🟢", "🏗️") + ' ' + userDisplay;
+        if (cbd.c.startsWith("busy-")) {
+          // Свободная → занятая
+          const buttonName = cbd.c.replace("busy-", "");
+          const userDisplay = getUserDisplay(user);
+          newText = userDisplay ? `${buttonName} ${userDisplay}` : buttonName;
           newCbd.c = cbd.c.replace("busy-", "free-");
           newCbd.u = user.id;
           notifyAction = "занимает";
-        } else if (btnText.startsWith("🏗️")) {
-          // When freeing resource, just change icon and remove any user info
-          newText = btnText.split(" ").shift().replace("🏗️", "🟢");
+          willBeBusyFree = true;
+        } else if (cbd.c.startsWith("free-")) {
+          // Занятая → свободная
+          const buttonName = cbd.c.replace("free-", "");
+          newText = buttonName;
           newCbd.c = cbd.c.replace("free-", "busy-");
           delete newCbd.u;
           notifyAction = "освобождает";
+          willBeBusyFree = false;
         }
-
-        target = newText;
-        notifyTargetName = newText.split(" ").shift().replace("🏗️", "").replace("🟢", "");
-        // Проверяем, будет ли кнопка после этого действия в нужном состоянии
-        willBeBusyFree = newText.startsWith("🏗️") && typeof newCbd.c === "string" && newCbd.c.startsWith("free-");
+        const buttonName = newCbd.c.replace(/^(free-|busy-)/, "");
+        target = buttonName;
+        notifyTargetName = buttonName;
       } else {
-        // Для остальных кнопок состояние не меняется
-        willBeBusyFree = btnText.startsWith("🏗️") && typeof cbd.c === "string" && cbd.c.startsWith("free-");
+        willBeBusyFree = typeof cbd.c === "string" && cbd.c.startsWith("free-");
       }
 
-      // Основная кнопка
-      const mainButtonText = cbd.c === callbackData.c ? newText : btnText;
+      const finalCbd = cbd.c === callbackData.c ? newCbd : cbd;
+      const mainButtonText = cbd.c === callbackData.c ? newText : newText;
       const mainButton = {
         text: mainButtonText,
-        callback_data: JSON.stringify(cbd.c === callbackData.c ? newCbd : cbd),
+        callback_data: JSON.stringify(finalCbd),
       };
-      if (mainButtonText.startsWith("🏗️")) {
-        mainButton.style = "danger";
+
+      if (finalCbd.c && finalCbd.c.startsWith("free-")) {
+        mainButton.style = "danger"; // красная = занята
+      } else if (finalCbd.c && !finalCbd.c.startsWith("⚡")) {
+        mainButton.style = "success"; // зелёная = свободна
       }
+
       row.push(mainButton);
 
-      // Добавлять ask только если кнопка после этого действия в состоянии 🏗️ и free-
+      // Добавлять ask только если кнопка после этого действия в состоянии занята
       if (willBeBusyFree) {
         let busyUserId = (cbd.c === callbackData.c ? newCbd.u : cbd.u);
         if (typeof busyUserId === "string" && /^[0-9]+$/.test(busyUserId)) {
@@ -285,10 +283,11 @@ async function handlerCallback(ctx, update) {
         if (typeof busyUserId === "number") {
           row.push({
             text: "🙇",
+            style: "primary",
             callback_data: JSON.stringify({
               a: "ask",
               t: busyUserId,
-              b: (cbd.c === callbackData.c ? newText : btnText).split(" ").shift().replace("🏗️", "").replace("🟢", "")
+              b: finalCbd.c.replace(/^(free-|busy-)/, "")
             }),
           });
         }
@@ -306,7 +305,16 @@ async function handlerCallback(ctx, update) {
         messageText = buttons
           .flat()
           .filter((button) => (button.text && !button.text.startsWith("⚡") && button.text !== "🙇"))
-          .map((button) => button.text)
+          .map((button) => {
+            try {
+              const bCbd = JSON.parse(button.callback_data);
+              const isBusy = bCbd.c && bCbd.c.startsWith("free-");
+              const name = bCbd.c ? bCbd.c.replace(/^(free-|busy-)/, "") : button.text;
+              return (isBusy ? "🏗️" : "🟢") + name;
+            } catch (e) {
+              return button.text;
+            }
+          })
           .join(" ");
       } catch (error) {
         console.error("Error parsing messageText", error);
@@ -338,28 +346,12 @@ async function handlerCallback(ctx, update) {
           continue;
         }
 
-        // Get user info for display
-        let userDisplayUpdater = "";
-        const userUpdater = update.callback_query.from;
-        
-        if (userUpdater.first_name || userUpdater.last_name) {
-          userDisplayUpdater = `${userUpdater.first_name || ""} ${userUpdater.last_name || ""}`.trim();
-        }
-        
-        if (userDisplayUpdater.trim() == '' && userUpdater.username) {
-          userDisplayUpdater = '@' + userUpdater.username;
-        }
-        
-        if (userDisplayUpdater.trim() == '') {
-          // Fallback to user ID if no name or username is available
-          userDisplayUpdater = 'id' + userUpdater.id.toString();
-        }
-        
+        const userDisplayUpdater = getUserDisplay(update.callback_query.from);
         const notifyText = `${userDisplayUpdater} ${notifyAction} ${notifyTargetName}`;
 
         console.log("notify", {
           to: id,
-          from: userUpdater.id,
+          from: update.callback_query.from.id,
           text: notifyText,
         });
 
@@ -392,12 +384,11 @@ async function handlerMessage(ctx, update) {
     // Каждая кнопка теперь в отдельном ряду
     let buttons = parts.slice(1).map((name) => {
       const callbackData = JSON.stringify({ c: `busy-${name}` });
-      // Только одна кнопка (свободная) на старте, без ask
-      return [{ text: `🟢${name}`, callback_data: callbackData }];
+      return [{ text: name, callback_data: callbackData, style: "success" }];
     });
 
     if (buttons.length > 0) {
-      messageText = buttons.map((row) => row[0].text).join(" ");
+      messageText = buttons.map((row) => `🟢${row[0].text}`).join(" ");
     }
 
     const notifyButton = [{
