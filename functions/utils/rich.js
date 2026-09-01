@@ -28,6 +28,10 @@ export function richTextToPlain(node) {
   return "";
 }
 
+export function messageBlocks(message) {
+  return message?.rich_message?.blocks || [];
+}
+
 /** Кнопки сообщения в едином виде — неважно, rich оно или обычное. */
 export function messageButtons(message) {
   if (message?.rich_message) {

@@ -1,4 +1,4 @@
-import { MAX_RESOURCE_NAME_BYTES } from "./codec.js";
+import { MAX_GROUPED_NAME_BYTES, MAX_RESOURCE_NAME_BYTES } from "./codec.js";
 import { escapeHtml } from "./rich.js";
 
 export const MESSAGES = {
@@ -6,6 +6,19 @@ export const MESSAGES = {
 
   nameTooLong: (names) =>
     `Слишком длинные имена: ${names.join(", ")}. Максимум ${MAX_RESOURCE_NAME_BYTES} байт на имя.`,
+
+  boardUsage: [
+    "Сгруппированная доска — по группе на строку:",
+    "",
+    "/board",
+    "group/subgroup: 1 2 3 4",
+    "one more-group: 1 2",
+    "another: testing",
+  ].join("\n"),
+  boardBadLines: (lines) =>
+    `Не понял строки: ${lines.join(" | ")}. Каждая строка должна быть вида "группа: ресурс1 ресурс2".`,
+  boardNameTooLong: (names) =>
+    `Слишком длинные имена: ${names.join(", ")}. Максимум ${MAX_GROUPED_NAME_BYTES} байт на имя в сгруппированной доске.`,
 
   askYourself: "Ты только что попросил себя освободить. Попробуй договориться с зеркалом.",
 
@@ -34,11 +47,14 @@ export const MESSAGES = {
 
   // Копия перерисовывается после каждого действия: видно, что произошло,
   // и не тянет нажать ещё раз «на всякий случай».
-  mirrorApplied: (headline, board) =>
+  // После действия копия становится терминальной: видно, что произошло, но
+  // нажать ещё раз уже нельзя — устаревшим снимком не затрёшь чужие изменения.
+  mirrorApplied: (headline, lines) =>
     [
       `<h3>${escapeHtml(headline)}</h3>`,
       "<p>Исходное сообщение обновлено.</p>",
-      `<blockquote>${escapeHtml(board)}</blockquote>`,
+      `<blockquote>${lines.map(escapeHtml).join("<br>")}</blockquote>`,
+      "<footer>Эта копия больше не активна — дальше в исходном сообщении.</footer>",
     ].join(""),
   mirrorResourceHeadline: (name, action) => `${name} — ${MESSAGES.resourceResult[action]}`,
 

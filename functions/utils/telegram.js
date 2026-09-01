@@ -1,6 +1,12 @@
 const API_ROOT = "https://api.telegram.org";
 
 /**
+ * Telegram отвечает ошибкой, когда правка ничего не меняет. Это не сбой: так
+ * бывает, когда двое нажали одну кнопку и второй пересчитал то же состояние.
+ */
+const NOT_MODIFIED = "message is not modified";
+
+/**
  * Тонкий клиент Bot API. Никогда не бросает: сеть и ошибки Telegram логируются
  * и возвращаются как { ok: false }, чтобы один неудачный вызов не ронял вебхук.
  */
@@ -34,7 +40,9 @@ export class Telegram {
     }
 
     if (!body?.ok) {
-      console.error(`${method} rejected`, { status: response.status, body, payload });
+      const benign = typeof body?.description === "string" && body.description.includes(NOT_MODIFIED);
+      const log = benign ? console.log : console.error;
+      log(`${method} rejected`, { status: response.status, body, payload });
       return body ?? { ok: false };
     }
 

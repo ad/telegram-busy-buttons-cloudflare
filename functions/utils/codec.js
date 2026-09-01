@@ -11,6 +11,13 @@
  *   a|<uid36>|<name>    просьба освободить ресурс
  *   n|<uid36>.<uid36>   подписчики на уведомления
  *   o|<chat36>|<msg36>  ссылка на исходную доску (только у копии доски в личке)
+ *
+ * У сгруппированной доски ресурс дополнительно несёт индекс группы — имя группы
+ * в payload не влезает, а индекс стоит один-два байта:
+ *
+ *   gf|<g36>|<name>            свободный ресурс группы g
+ *   gb|<g36>|<uid36>|<name>    занятый
+ *   ga|<g36>|<uid36>|<name>    просьба освободить
  */
 
 export const CALLBACK_DATA_LIMIT = 64;
@@ -20,6 +27,7 @@ export const ACTION = {
   ASK: "ask",
   NOTIFY: "notify",
   ORIGIN: "origin",
+  GROUPED_RESOURCE: "grouped_resource",
 };
 
 const encoder = new TextEncoder();
@@ -40,6 +48,13 @@ const USER_ID_MAX_CHARS = 10;
 // Худший случай для имени — payload занятой кнопки "b|<uid>|<name>" и такой же по длине "a|...".
 export const MAX_RESOURCE_NAME_BYTES =
   CALLBACK_DATA_LIMIT - "b|".length - USER_ID_MAX_CHARS - "|".length;
+
+// Двух символов base36 хватает на 1295 групп.
+const GROUP_INDEX_MAX_CHARS = 2;
+
+// То же для сгруппированной доски: "gb|<g>|<uid>|<name>".
+export const MAX_GROUPED_NAME_BYTES =
+  CALLBACK_DATA_LIMIT - "gb|".length - GROUP_INDEX_MAX_CHARS - "|".length - USER_ID_MAX_CHARS - "|".length;
 
 // id чата бывает отрицательным (группы и супергруппы), id пользователя — нет.
 const CHAT_ID_PATTERN = /^-?[0-9a-z]+$/;
@@ -95,6 +110,16 @@ export function encodeNotify(subscribers) {
   return `n|${subscribers.map(encodeUserId).join(".")}`;
 }
 
+export function encodeGroupedResource({ group, name, busy, holder }) {
+  return busy
+    ? `gb|${encodeInt(group)}|${encodeUserId(holder)}|${name}`
+    : `gf|${encodeInt(group)}|${name}`;
+}
+
+export function encodeGroupedAsk({ group, name, holder }) {
+  return `ga|${encodeInt(group)}|${encodeUserId(holder)}|${name}`;
+}
+
 export function encodeOrigin({ chatId, messageId }) {
   return `o|${encodeInt(chatId)}|${encodeInt(messageId)}`;
 }
@@ -128,6 +153,34 @@ export function decodeCallbackData(raw) {
       const [id, name] = splitOnce(rest);
       const holder = decodeUserId(id);
       return !name || holder == null ? null : { action: ACTION.ASK, name, holder };
+    }
+    case "gf": {
+      const [index, name] = splitOnce(rest);
+      const group = decodeInt(index, USER_ID_PATTERN);
+      return group == null || !name
+        ? null
+        : { action: ACTION.GROUPED_RESOURCE, group, name, busy: false, holder: null };
+    }
+    case "gb": {
+      const [index, tail] = splitOnce(rest);
+      const group = decodeInt(index, USER_ID_PATTERN);
+      if (group == null || tail == null) {
+        return null;
+      }
+      const [id, name] = splitOnce(tail);
+      return !name
+        ? null
+        : { action: ACTION.GROUPED_RESOURCE, group, name, busy: true, holder: id === "" ? null : decodeUserId(id) };
+    }
+    case "ga": {
+      const [index, tail] = splitOnce(rest);
+      const group = decodeInt(index, USER_ID_PATTERN);
+      if (group == null || tail == null) {
+        return null;
+      }
+      const [id, name] = splitOnce(tail);
+      const holder = decodeUserId(id);
+      return !name || holder == null ? null : { action: ACTION.ASK, group, name, holder };
     }
     case "o": {
       const [chat, message] = splitOnce(rest);
