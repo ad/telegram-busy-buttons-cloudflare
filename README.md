@@ -11,6 +11,31 @@ bot answers with message+buttons, now you can interact with it
 
 [@busybuttonsbot](https://t.me/busybuttonsbot)
 
+## Structure
+
+```
+functions/
+  webhook/[path].js   роутинг вебхука и обработчики апдейтов
+  utils/
+    board.js          доска ресурсов: разбор клавиатуры, переходы, рендер
+    codec.js          упаковка состояния в callback_data (лимит Telegram — 64 байта)
+    telegram.js       клиент Bot API
+    user.js           подпись пользователя (имя → @username → id)
+    messages.js       тексты, которые видит пользователь
+test/                 тесты на node:test, без зависимостей
+```
+
+Состояние доски целиком лежит в кнопках сообщения — хранилища у бота нет.
+Отсюда главное ограничение: каждый `callback_data` обязан уместиться в 64 байта.
+Поэтому имя ресурса ограничено 51 байтом, а на одно сообщение помещается
+9 подписчиков на уведомления; при переполнении бот отвечает отказом, а не ломает кнопки.
+
+## Tests
+
+```
+npm test
+```
+
 ## Local run via wrangler
 
 ```

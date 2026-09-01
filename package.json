@@ -1,0 +1,11 @@
+{
+  "name": "telegram-busy-buttons-cloudflare",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Telegram bot with busy/free buttons, running on Cloudflare Pages Functions",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test test/"
+  }
+}
