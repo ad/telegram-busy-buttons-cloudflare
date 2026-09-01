@@ -10,6 +10,7 @@
  *   b|<uid36>|<name>    занятый ресурс (uid может быть пустым — держатель неизвестен)
  *   a|<uid36>|<name>    просьба освободить ресурс
  *   n|<uid36>.<uid36>   подписчики на уведомления
+ *   o|<chat36>|<msg36>  ссылка на исходную доску (только у копии доски в личке)
  */
 
 export const CALLBACK_DATA_LIMIT = 64;
@@ -18,6 +19,7 @@ export const ACTION = {
   RESOURCE: "resource",
   ASK: "ask",
   NOTIFY: "notify",
+  ORIGIN: "origin",
 };
 
 const encoder = new TextEncoder();
@@ -38,6 +40,21 @@ const USER_ID_MAX_CHARS = 10;
 // Худший случай для имени — payload занятой кнопки "b|<uid>|<name>" и такой же по длине "a|...".
 export const MAX_RESOURCE_NAME_BYTES =
   CALLBACK_DATA_LIMIT - "b|".length - USER_ID_MAX_CHARS - "|".length;
+
+// id чата бывает отрицательным (группы и супергруппы), id пользователя — нет.
+const CHAT_ID_PATTERN = /^-?[0-9a-z]+$/;
+
+function encodeInt(value) {
+  return Number(value).toString(36);
+}
+
+function decodeInt(value, pattern) {
+  if (typeof value !== "string" || !pattern.test(value)) {
+    return null;
+  }
+  const parsed = parseInt(value, 36);
+  return Number.isSafeInteger(parsed) ? parsed : null;
+}
 
 function encodeUserId(id) {
   return id == null ? "" : Number(id).toString(36);
@@ -78,6 +95,10 @@ export function encodeNotify(subscribers) {
   return `n|${subscribers.map(encodeUserId).join(".")}`;
 }
 
+export function encodeOrigin({ chatId, messageId }) {
+  return `o|${encodeInt(chatId)}|${encodeInt(messageId)}`;
+}
+
 function splitOnce(value) {
   const at = value.indexOf("|");
   return at === -1 ? [value, null] : [value.slice(0, at), value.slice(at + 1)];
@@ -107,6 +128,12 @@ export function decodeCallbackData(raw) {
       const [id, name] = splitOnce(rest);
       const holder = decodeUserId(id);
       return !name || holder == null ? null : { action: ACTION.ASK, name, holder };
+    }
+    case "o": {
+      const [chat, message] = splitOnce(rest);
+      const chatId = decodeInt(chat, CHAT_ID_PATTERN);
+      const messageId = decodeInt(message, USER_ID_PATTERN);
+      return chatId == null || messageId == null ? null : { action: ACTION.ORIGIN, chatId, messageId };
     }
     case "n":
       return {

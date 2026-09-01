@@ -50,11 +50,24 @@ export class Telegram {
     });
   }
 
-  editMessageText({ chatId, messageId, text, keyboard }) {
+  /**
+   * Rich message (Bot API 10.1): и содержимое, и кнопки задаются разметкой в
+   * rich_message.html — отдельный reply_markup такому сообщению не нужен.
+   */
+  sendRichMessage({ chatId, html, threadId }) {
+    return this.call("sendRichMessage", {
+      chat_id: chatId,
+      rich_message: { html },
+      ...(threadId ? { message_thread_id: threadId } : {}),
+    });
+  }
+
+  /** text и html взаимоисключающи: editMessageText требует ровно одно из них. */
+  editMessageText({ chatId, messageId, text, html, keyboard }) {
     return this.call("editMessageText", {
       chat_id: chatId,
       message_id: messageId,
-      text,
+      ...(html ? { rich_message: { html } } : { text }),
       ...(keyboard ? { reply_markup: { inline_keyboard: keyboard } } : {}),
     });
   }

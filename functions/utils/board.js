@@ -2,7 +2,10 @@
  * Доска ресурсов — целиком выводится из inline-клавиатуры сообщения и обратно
  * в неё же рендерится. Никакого хранилища: сообщение и есть состояние.
  *
- *   Board = { resources: [{ name, busy, holder, holderLabel }], subscribers: number[] }
+ *   Board = { resources: [{ name, busy, holder, holderLabel }], subscribers: number[], origin }
+ *
+ * origin заполнен только у копии доски, отправленной в личку: он указывает на
+ * исходное сообщение, которое нужно обновить вместе с копией.
  */
 
 import {
@@ -12,6 +15,7 @@ import {
   decodeCallbackData,
   encodeAsk,
   encodeNotify,
+  encodeOrigin,
   encodeResource,
   fitsCallbackData,
 } from "./codec.js";
@@ -24,6 +28,8 @@ export const STYLE = { FREE: "success", BUSY: "danger", ASK: "primary" };
 
 export const SUBSCRIPTION = { ENABLED: "enabled", DISABLED: "disabled", FULL: "full" };
 
+export const RESOURCE_ACTION = { TAKEN: "taken", RELEASED: "released" };
+
 // Кнопки старых версий несли иконку в тексте; сейчас иконки только в тексте сообщения.
 const LEADING_ICON = /^(?:🟢|🏗️)\s*/u;
 
@@ -32,12 +38,14 @@ export function createBoard(names) {
   return {
     resources: unique.map((name) => ({ name, busy: false, holder: null, holderLabel: "" })),
     subscribers: [],
+    origin: null,
   };
 }
 
 export function parseBoard(inlineKeyboard) {
   const resources = [];
   let subscribers = [];
+  let origin = null;
 
   for (const button of (inlineKeyboard || []).flat()) {
     const payload = decodeCallbackData(button?.callback_data);
@@ -47,6 +55,8 @@ export function parseBoard(inlineKeyboard) {
 
     if (payload.action === ACTION.NOTIFY) {
       subscribers = payload.subscribers;
+    } else if (payload.action === ACTION.ORIGIN) {
+      origin = { chatId: payload.chatId, messageId: payload.messageId };
     } else if (payload.action === ACTION.RESOURCE) {
       resources.push({
         name: payload.name,
@@ -59,7 +69,7 @@ export function parseBoard(inlineKeyboard) {
     // Кнопки "🙇" состояния не несут — они пересобираются при рендере.
   }
 
-  return { resources, subscribers };
+  return { resources, subscribers, origin };
 }
 
 function holderLabelFrom(text, name) {
@@ -78,7 +88,16 @@ export function renderBoard(board) {
 
   inline_keyboard.push([notifyButton(board.subscribers)]);
 
+  if (board.origin) {
+    inline_keyboard.push([originButton(board.origin)]);
+  }
+
   return { text: boardText(board), inline_keyboard };
+}
+
+/** Копия доски для лички: та же клавиатура плюс указатель на исходное сообщение. */
+export function mirrorOf(board, message) {
+  return { ...board, origin: { chatId: message.chat.id, messageId: message.message_id } };
 }
 
 export function boardText(board) {
@@ -106,6 +125,10 @@ function askButton(resource) {
     style: STYLE.ASK,
     callback_data: encodeAsk(resource),
   };
+}
+
+function originButton(origin) {
+  return { text: MESSAGES.closeMirror, callback_data: encodeOrigin(origin) };
 }
 
 function notifyButton(subscribers) {
@@ -136,7 +159,7 @@ export function toggleResource(board, name, user) {
   return {
     board: { ...board, resources },
     resource: next,
-    action: current.busy ? MESSAGES.resourceReleased : MESSAGES.resourceTaken,
+    action: current.busy ? RESOURCE_ACTION.RELEASED : RESOURCE_ACTION.TAKEN,
   };
 }
 

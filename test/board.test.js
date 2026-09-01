@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import {
   ICON,
+  RESOURCE_ACTION,
   STYLE,
   SUBSCRIPTION,
   boardText,
@@ -50,7 +51,7 @@ describe("board: занять и освободить", () => {
     const { board, action } = toggleResource(createBoard(["prod", "stage"]), "prod", IVAN);
     const [main, ask] = renderBoard(board).inline_keyboard[0];
 
-    assert.equal(action, "занимает");
+    assert.equal(action, RESOURCE_ACTION.TAKEN);
     assert.equal(main.text, "prod Ivan Petrov");
     assert.equal(main.style, STYLE.BUSY);
     assert.equal(ask.text, ICON.ASK);
@@ -61,7 +62,7 @@ describe("board: занять и освободить", () => {
     const taken = toggleResource(createBoard(["prod"]), "prod", IVAN).board;
     const { board, action } = toggleResource(taken, "prod", MARY);
 
-    assert.equal(action, "освобождает");
+    assert.equal(action, RESOURCE_ACTION.RELEASED);
     assert.deepEqual(named(board, "prod"), { name: "prod", busy: false, holder: null, holderLabel: "" });
     assert.deepEqual(renderBoard(board).inline_keyboard[0].map((b) => b.text), ["prod"]);
   });
@@ -110,6 +111,7 @@ describe("board: разбор клавиатуры", () => {
         { name: "stage", busy: false, holder: null, holderLabel: "" },
       ],
       subscribers: [987654321],
+      origin: null,
     });
   });
 

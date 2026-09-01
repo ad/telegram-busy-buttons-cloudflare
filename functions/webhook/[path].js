@@ -1,8 +1,10 @@
 import {
   SUBSCRIPTION,
+  boardText,
   buttonText,
   createBoard,
   invalidResourceNames,
+  mirrorOf,
   parseBoard,
   renderBoard,
   toggleResource,
@@ -10,6 +12,7 @@ import {
 } from "../utils/board.js";
 import { ACTION, decodeCallbackData } from "../utils/codec.js";
 import { MESSAGES } from "../utils/messages.js";
+import { buttonRows, messageButtons } from "../utils/rich.js";
 import { Telegram } from "../utils/telegram.js";
 import { displayName } from "../utils/user.js";
 
@@ -106,6 +109,8 @@ async function handleCallbackQuery(ctx, query) {
       return handleAsk(ctx, query, payload);
     case ACTION.NOTIFY:
       return handleNotify(ctx, query);
+    case ACTION.ORIGIN:
+      return handleCloseMirror(ctx, query);
     case ACTION.RESOURCE:
       return handleResource(ctx, query, payload);
     default:
@@ -116,6 +121,7 @@ async function handleCallbackQuery(ctx, query) {
 
 async function handleAsk(ctx, query, payload) {
   if (payload.holder === query.from.id) {
+    await sendSelfReleaseMirror(ctx, query, payload.name);
     return answer(ctx, query, MESSAGES.askYourself);
   }
 
@@ -127,25 +133,60 @@ async function handleAsk(ctx, query, payload) {
   return answer(ctx, query, sent.ok ? MESSAGES.askSent : MESSAGES.askFailed);
 }
 
+/**
+ * Просьба освободить ресурс, который ты держишь сам: кроме шутки во всплывашке
+ * присылаем в личку копию доски, с которой ресурс можно отпустить сразу.
+ *
+ * Копия несёт полный снимок доски, потому что editMessageText требует прислать
+ * клавиатуру целиком, а прочитать исходное сообщение бот не может.
+ */
+async function sendSelfReleaseMirror(ctx, query, name) {
+  // В личке доска и так под рукой — вторая копия там не нужна.
+  if (query.message.chat.id === query.from.id) {
+    return;
+  }
+
+  const mirror = mirrorOf(parseBoard(messageButtons(query.message)), query.message);
+
+  await ctx.telegram.sendRichMessage({
+    chatId: query.from.id,
+    html: MESSAGES.askYourselfDetails(name) + mirrorButtons(mirror),
+  });
+}
+
+/** Клавиатура копии живёт в разметке: <tg-button-row> вместо reply_markup. */
+function mirrorButtons(board) {
+  return buttonRows(renderBoard(board).inline_keyboard);
+}
+
+async function handleCloseMirror(ctx, query) {
+  await ctx.telegram.editMessageText({
+    chatId: query.message.chat.id,
+    messageId: query.message.message_id,
+    html: MESSAGES.mirrorClosed,
+  });
+
+  return answer(ctx, query, MESSAGES.mirrorClosedAnswer);
+}
+
 async function handleNotify(ctx, query) {
-  const { board, result } = toggleSubscription(parseBoard(query.message.reply_markup?.inline_keyboard), query.from.id);
+  const { board, result } = toggleSubscription(parseBoard(messageButtons(query.message)), query.from.id);
 
   if (result === SUBSCRIPTION.FULL) {
     return answer(ctx, query, MESSAGES.notificationsFull(board.subscribers.length));
   }
 
-  await redraw(ctx, query.message, board);
+  const headline =
+    result === SUBSCRIPTION.ENABLED ? MESSAGES.notificationsEnabled : MESSAGES.notificationsDisabled;
 
-  return answer(
-    ctx,
-    query,
-    result === SUBSCRIPTION.ENABLED ? MESSAGES.notificationsEnabled : MESSAGES.notificationsDisabled
-  );
+  await applyChange(ctx, query.message, board, headline);
+
+  return answer(ctx, query, headline);
 }
 
 async function handleResource(ctx, query, payload) {
   const { board, resource, action } = toggleResource(
-    parseBoard(query.message.reply_markup?.inline_keyboard),
+    parseBoard(messageButtons(query.message)),
     payload.name,
     query.from
   );
@@ -155,10 +196,36 @@ async function handleResource(ctx, query, payload) {
     return answer(ctx, query, MESSAGES.unknownButton);
   }
 
-  await redraw(ctx, query.message, board);
+  await applyChange(ctx, query.message, board, MESSAGES.mirrorResourceHeadline(resource.name, action));
   await notifySubscribers(ctx, board.subscribers, query.from, action, resource.name);
 
   return answer(ctx, query, MESSAGES.resourceUpdated(buttonText(resource)));
+}
+
+/**
+ * Применяет изменение доски. Нажатие в копии из лички обновляет исходное
+ * сообщение и перерисовывает саму копию: видно, что произошло, и не тянет
+ * нажать ещё раз.
+ */
+async function applyChange(ctx, message, board, headline) {
+  if (!board.origin) {
+    return redraw(ctx, message, board);
+  }
+
+  const { text, inline_keyboard } = renderBoard({ ...board, origin: null });
+
+  await ctx.telegram.editMessageText({
+    chatId: board.origin.chatId,
+    messageId: board.origin.messageId,
+    text,
+    keyboard: inline_keyboard,
+  });
+
+  await ctx.telegram.editMessageText({
+    chatId: message.chat.id,
+    messageId: message.message_id,
+    html: MESSAGES.mirrorApplied(headline, boardText(board)) + mirrorButtons(board),
+  });
 }
 
 function redraw(ctx, message, board) {
