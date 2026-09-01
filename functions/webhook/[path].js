@@ -163,18 +163,21 @@ async function handleCallbackQuery(ctx, query) {
 }
 
 async function handleAsk(ctx, query, payload) {
-  const grouped = payload.group == null ? null : parseGroupedBoard(messageBlocks(query.message));
-  const groupName = grouped?.groups[payload.group]?.name;
+  const grouped = payload.group != null;
+  const board = grouped
+    ? parseGroupedBoard(messageBlocks(query.message))
+    : parseBoard(messageButtons(query.message));
+  const groupName = grouped ? board.groups[payload.group]?.name : null;
   const label = groupName ? groupedLabel(groupName, payload.name) : payload.name;
 
   if (payload.holder === query.from.id) {
-    await sendSelfReleaseMirror(ctx, query, label, grouped);
+    await sendSelfReleaseMirror(ctx, query, label, board, grouped);
     return answer(ctx, query, MESSAGES.askYourself);
   }
 
-  const sent = await ctx.telegram.sendMessage({
+  const sent = await sendMirror(ctx, query, board, grouped, {
     chatId: payload.holder,
-    text: MESSAGES.askToRelease(displayName(query.from), label),
+    html: MESSAGES.askToReleaseDetails(displayName(query.from), label),
   });
 
   return answer(ctx, query, sent.ok ? MESSAGES.askSent : MESSAGES.askFailed);
@@ -183,24 +186,37 @@ async function handleAsk(ctx, query, payload) {
 /**
  * Просьба освободить ресурс, который ты держишь сам: кроме шутки во всплывашке
  * присылаем в личку копию доски, с которой ресурс можно отпустить сразу.
- *
- * Копия несёт полный снимок доски, потому что editMessageText требует прислать
- * клавиатуру целиком, а прочитать исходное сообщение бот не может.
  */
-async function sendSelfReleaseMirror(ctx, query, name, groupedBoard) {
+async function sendSelfReleaseMirror(ctx, query, name, board, grouped) {
   // В личке доска и так под рукой — вторая копия там не нужна.
   if (query.message.chat.id === query.from.id) {
     return;
   }
 
-  const board = groupedBoard ?? parseBoard(messageButtons(query.message));
-  const mirror = groupedBoard
-    ? renderGroupedBoard(groupedMirrorOf(board, query.message))
-    : mirrorButtons(mirrorOf(board, query.message));
-
-  await ctx.telegram.sendRichMessage({
+  await sendMirror(ctx, query, board, grouped, {
     chatId: query.from.id,
-    html: MESSAGES.askYourselfDetails(name) + mirror,
+    html: MESSAGES.askYourselfDetails(name),
+  });
+}
+
+/**
+ * Копия доски: текст плюс полный снимок состояния.
+ *
+ * Снимок нужен целиком, потому что editMessageText требует прислать клавиатуру
+ * целиком, а прочитать исходное сообщение бот не может. Указатель на исходное
+ * сообщение (origin) сохраняется, если он уже есть: копия копии всё равно
+ * должна править настоящую доску, а не промежуточную.
+ */
+function sendMirror(ctx, query, board, grouped, { html, chatId, threadId, ephemeral }) {
+  const mirror = board.origin
+    ? board
+    : (grouped ? groupedMirrorOf : mirrorOf)(board, query.message);
+
+  return ctx.telegram.sendRichMessage({
+    chatId,
+    threadId,
+    ephemeral,
+    html: html + (grouped ? renderGroupedBoard(mirror) : mirrorButtons(mirror)),
   });
 }
 
@@ -209,14 +225,61 @@ function mirrorButtons(board) {
   return buttonRows(renderBoard(board).inline_keyboard);
 }
 
-async function handleCloseMirror(ctx, query) {
-  await ctx.telegram.editMessageText({
+/**
+ * Чужой ресурс не освобождается первым нажатием: бот показывает нажавшему копию
+ * доски, и забирает ресурс уже нажатие в копии. Копия узнаётся по origin —
+ * подтверждение для неё получено на шаг раньше.
+ */
+function needsConfirmation(board, resource, query) {
+  return Boolean(
+    resource?.busy && resource.holder != null && resource.holder !== query.from.id && !board.origin
+  );
+}
+
+/**
+ * Подтверждение приходит эфемерным сообщением (Bot API 10.2): оно живёт прямо
+ * в общем чате, но видит его только нажавший — в личку идти не нужно, и чат
+ * остальным не засоряется. Право ответить эфемерно даёт callback_query_id и
+ * действует 15 секунд, поэтому отправляем сразу, до всплывашки.
+ */
+async function confirmTakeover(ctx, query, board, grouped, label, resource) {
+  const holder = resource.holderLabel || MESSAGES.unknownHolder;
+
+  const sent = await sendMirror(ctx, query, board, grouped, {
     chatId: query.message.chat.id,
-    messageId: query.message.message_id,
-    html: MESSAGES.mirrorClosed,
+    threadId: query.message.message_thread_id,
+    ephemeral: { receiverUserId: query.from.id, callbackQueryId: query.id },
+    html: MESSAGES.takeoverDetails(label, holder),
   });
 
+  return answer(ctx, query, sent.ok ? MESSAGES.takeoverAsked(holder) : MESSAGES.takeoverFailed);
+}
+
+async function handleCloseMirror(ctx, query) {
+  await editSelf(ctx, query.message, { html: MESSAGES.mirrorClosed });
+
   return answer(ctx, query, MESSAGES.mirrorClosedAnswer);
+}
+
+/**
+ * Правка того сообщения, в котором нажали кнопку. У эфемерного сообщения
+ * message_id всегда 0 — оно адресуется парой чат + получатель.
+ */
+function editSelf(ctx, message, patch) {
+  if (message.ephemeral_message_id) {
+    return ctx.telegram.editEphemeralMessageText({
+      chatId: message.chat.id,
+      receiverUserId: message.receiver_user?.id,
+      ephemeralMessageId: message.ephemeral_message_id,
+      ...patch,
+    });
+  }
+
+  return ctx.telegram.editMessageText({
+    chatId: message.chat.id,
+    messageId: message.message_id,
+    ...patch,
+  });
 }
 
 async function handleNotify(ctx, query) {
@@ -244,11 +307,14 @@ async function handleNotify(ctx, query) {
 }
 
 async function handleResource(ctx, query, payload) {
-  const { board, resource, action } = toggleResource(
-    parseBoard(messageButtons(query.message)),
-    payload.name,
-    query.from
-  );
+  const current = parseBoard(messageButtons(query.message));
+  const held = current.resources.find((resource) => resource.name === payload.name);
+
+  if (needsConfirmation(current, held, query)) {
+    return confirmTakeover(ctx, query, current, false, payload.name, held);
+  }
+
+  const { board, resource, action } = toggleResource(current, payload.name, query.from);
 
   if (!action) {
     console.error("resource is missing from the board", payload.name);
@@ -264,8 +330,23 @@ async function handleResource(ctx, query, payload) {
 }
 
 async function handleGroupedResource(ctx, query, payload) {
+  const current = parseGroupedBoard(messageBlocks(query.message));
+  const heldGroup = current.groups[payload.group];
+  const held = heldGroup?.resources.find((resource) => resource.name === payload.name);
+
+  if (needsConfirmation(current, held, query)) {
+    return confirmTakeover(
+      ctx,
+      query,
+      current,
+      true,
+      groupedLabel(heldGroup.name, held.name),
+      held
+    );
+  }
+
   const { board, group, resource, action } = toggleGroupedResource(
-    parseGroupedBoard(messageBlocks(query.message)),
+    current,
     payload.group,
     payload.name,
     query.from
@@ -288,11 +369,7 @@ async function handleGroupedResource(ctx, query, payload) {
 /** То же, что applyChange, но доска рендерится разметкой, а не клавиатурой. */
 async function applyGroupedChange(ctx, message, board, headline) {
   if (!board.origin) {
-    return ctx.telegram.editMessageText({
-      chatId: message.chat.id,
-      messageId: message.message_id,
-      html: renderGroupedBoard(board),
-    });
+    return editSelf(ctx, message, { html: renderGroupedBoard(board) });
   }
 
   await ctx.telegram.editMessageText({
@@ -301,11 +378,7 @@ async function applyGroupedChange(ctx, message, board, headline) {
     html: renderGroupedBoard({ ...board, origin: null }),
   });
 
-  await ctx.telegram.editMessageText({
-    chatId: message.chat.id,
-    messageId: message.message_id,
-    html: MESSAGES.mirrorApplied(headline, groupedBoardText(board)),
-  });
+  await editSelf(ctx, message, { html: MESSAGES.mirrorApplied(headline, groupedBoardText(board)) });
 }
 
 /**
@@ -327,22 +400,13 @@ async function applyChange(ctx, message, board, headline) {
     keyboard: inline_keyboard,
   });
 
-  await ctx.telegram.editMessageText({
-    chatId: message.chat.id,
-    messageId: message.message_id,
-    html: MESSAGES.mirrorApplied(headline, [boardText(board)]),
-  });
+  await editSelf(ctx, message, { html: MESSAGES.mirrorApplied(headline, [boardText(board)]) });
 }
 
 function redraw(ctx, message, board) {
   const { text, inline_keyboard } = renderBoard(board);
 
-  return ctx.telegram.editMessageText({
-    chatId: message.chat.id,
-    messageId: message.message_id,
-    text,
-    keyboard: inline_keyboard,
-  });
+  return editSelf(ctx, message, { text, keyboard: inline_keyboard });
 }
 
 function notifySubscribers(ctx, subscribers, actor, action, name) {

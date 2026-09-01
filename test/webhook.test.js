@@ -40,12 +40,18 @@ const message = (text, extra = {}) => ({
   message: { message_id: 1, chat: { id: 10 }, from: IVAN, text, ...extra },
 });
 
-const callback = ({ from = IVAN, data, keyboard, text = "...", chat = { id: 10 }, messageId = 5 }) => ({
+const callback = ({ from = IVAN, data, keyboard, text = "...", chat = { id: 10 }, messageId = 5, threadId }) => ({
   callback_query: {
     id: "cb1",
     from,
     data,
-    message: { message_id: messageId, chat, text, reply_markup: { inline_keyboard: keyboard } },
+    message: {
+      message_id: messageId,
+      chat,
+      text,
+      ...(threadId ? { message_thread_id: threadId } : {}),
+      reply_markup: { inline_keyboard: keyboard },
+    },
   },
 });
 
@@ -62,6 +68,25 @@ const richCallback = ({ from = IVAN, data, blocks, chatId = IVAN.id, messageId =
     from,
     data,
     message: { message_id: messageId, chat: { id: chatId }, rich_message: { blocks } },
+  },
+});
+
+/**
+ * Нажатие в эфемерном сообщении: message_id у него всегда 0, а адресуется оно
+ * парой чат + получатель.
+ */
+const ephemeralCallback = ({ from = IVAN, data, html, chatId = 10, ephemeralId = 88 }) => ({
+  callback_query: {
+    id: "cb2",
+    from,
+    data,
+    message: {
+      message_id: 0,
+      ephemeral_message_id: ephemeralId,
+      receiver_user: from,
+      chat: { id: chatId },
+      rich_message: { blocks: richBlocks(html) },
+    },
   },
 });
 
@@ -281,10 +306,13 @@ describe("webhook: /board", () => {
     calls = [];
     await press(html, rows(html)[1].buttons[1].callback_data, MARY);
 
-    assert.deepEqual(lastCall("sendMessage").payload, {
-      chat_id: IVAN.id,
-      text: 'Пользователь Mary просит освободить "group/subgroup/2" если уже не нужно.',
-    });
+    const dm = lastCall("sendRichMessage").payload;
+    assert.equal(dm.chat_id, IVAN.id);
+    assert.deepEqual(callsTo("sendMessage"), []);
+    assert.match(dm.rich_message.html, /<h3>Просят освободить<\/h3>/);
+    assert.match(dm.rich_message.html, /Mary просит освободить <code>group\/subgroup\/2<\/code>/);
+    // К просьбе приложена копия доски: ресурс отпускается прямо из лички.
+    assert.equal(rows(dm.rich_message.html).at(-1).buttons[0].text, MESSAGES.closeMirror);
   });
 
   it("копия в личку повторяет группы и обновляет исходную доску", async () => {
@@ -346,7 +374,7 @@ describe("webhook: занять и освободить", () => {
     await handle(callback({ data: keyboard[0][0].callback_data, keyboard }));
 
     keyboard = lastCall("editMessageText").payload.reply_markup.inline_keyboard;
-    await handle(callback({ from: MARY, data: keyboard[0][0].callback_data, keyboard }));
+    await handle(callback({ from: IVAN, data: keyboard[0][0].callback_data, keyboard }));
 
     const edit = lastCall("editMessageText").payload;
     assert.equal(edit.text, "🟢prod");
@@ -460,17 +488,36 @@ describe("webhook: уведомления", () => {
 });
 
 describe("webhook: просьба освободить", () => {
-  it("уходит держателю ресурса", async () => {
+  it("уходит держателю копией доски, а не простым сообщением", async () => {
     const { keyboard } = await takenBoard();
 
     calls = [];
     await handle(callback({ from: MARY, data: keyboard[0][1].callback_data, keyboard }));
 
-    assert.deepEqual(lastCall("sendMessage").payload, {
-      chat_id: IVAN.id,
-      text: 'Пользователь Mary просит освободить "prod" если уже не нужно.',
-    });
+    assert.deepEqual(callsTo("sendMessage"), []);
+    const dm = lastCall("sendRichMessage").payload;
+    assert.equal(dm.chat_id, IVAN.id);
+    assert.match(dm.rich_message.html, /<h3>Просят освободить<\/h3>/);
+    assert.match(dm.rich_message.html, /Mary просит освободить <code>prod<\/code>/);
+    assert.deepEqual(
+      rows(dm.rich_message.html).map((block) => block.buttons.map((b) => b.text)),
+      [["prod Ivan", ICON.ASK], [ICON.NOTIFY], [MESSAGES.closeMirror]]
+    );
     assert.equal(lastCall("answerCallbackQuery").payload.text, MESSAGES.askSent);
+  });
+
+  it("держатель освобождает ресурс прямо из просьбы", async () => {
+    const { keyboard } = await takenBoard();
+    await handle(callback({ from: MARY, data: keyboard[0][1].callback_data, keyboard }));
+    const html = lastCall("sendRichMessage").payload.rich_message.html;
+
+    calls = [];
+    await handle(richCallback({ data: rows(html)[0].buttons[0].callback_data, blocks: richBlocks(html) }));
+
+    const origin = callsTo("editMessageText")[0].payload;
+    assert.equal(origin.chat_id, 10);
+    assert.equal(origin.message_id, 5);
+    assert.equal(origin.text, "🟢prod");
   });
 
   it("просьба самому себе превращается в шутку и никого больше не беспокоит", async () => {
@@ -488,10 +535,167 @@ describe("webhook: просьба освободить", () => {
   it("недоставленная просьба не выдаётся за отправленную", async () => {
     const { keyboard } = await takenBoard();
 
-    stubTelegram((method) => (method === "sendMessage" ? { ok: false, description: "bot was blocked" } : { ok: true }));
+    stubTelegram((method) =>
+      method === "sendRichMessage" ? { ok: false, description: "bot was blocked" } : { ok: true }
+    );
     await handle(callback({ from: MARY, data: keyboard[0][1].callback_data, keyboard }));
 
     assert.equal(lastCall("answerCallbackQuery").payload.text, MESSAGES.askFailed);
+  });
+});
+
+describe("webhook: подтверждение захвата чужого ресурса", () => {
+  it("нажатие на чужой ресурс ничего не меняет в чате", async () => {
+    const { keyboard } = await takenBoard();
+
+    calls = [];
+    await handle(callback({ from: MARY, data: keyboard[0][0].callback_data, keyboard }));
+
+    assert.deepEqual(callsTo("editMessageText"), []);
+    assert.equal(lastCall("answerCallbackQuery").payload.text, MESSAGES.takeoverAsked("Ivan"));
+  });
+
+  it("копия эфемерная: она в общем чате, но видит её только нажавший", async () => {
+    const { keyboard } = await takenBoard();
+
+    calls = [];
+    await handle(callback({ from: MARY, data: keyboard[0][0].callback_data, keyboard }));
+
+    const shown = lastCall("sendRichMessage").payload;
+    assert.equal(shown.chat_id, 10);
+    assert.deepEqual(shown.ephemeral_message_parameters, {
+      receiver_user_id: MARY.id,
+      callback_query_id: "cb1",
+    });
+    assert.match(shown.rich_message.html, /<code>prod<\/code> занимает Ivan/);
+    assert.deepEqual(
+      rows(shown.rich_message.html).map((block) => block.buttons.map((b) => b.text)),
+      [["prod Ivan", ICON.ASK], [ICON.NOTIFY], [MESSAGES.closeMirror]]
+    );
+  });
+
+  it("в теме форума подтверждение остаётся в той же теме", async () => {
+    await handle(message("/create prod", { message_thread_id: 42 }));
+    let keyboard = lastCall("sendMessage").payload.reply_markup.inline_keyboard;
+    const inTopic = { threadId: 42 };
+    await handle(callback({ from: IVAN, data: keyboard[0][0].callback_data, keyboard, ...inTopic }));
+    keyboard = lastCall("editMessageText").payload.reply_markup.inline_keyboard;
+
+    await handle(callback({ from: MARY, data: keyboard[0][0].callback_data, keyboard, ...inTopic }));
+
+    assert.equal(lastCall("sendRichMessage").payload.message_thread_id, 42);
+  });
+
+  it("нажатие в эфемерной копии подтверждает захват и освобождает ресурс", async () => {
+    const { keyboard } = await takenBoard();
+    await handle(callback({ from: MARY, data: keyboard[0][0].callback_data, keyboard }));
+    const html = lastCall("sendRichMessage").payload.rich_message.html;
+
+    calls = [];
+    await handle(ephemeralCallback({ from: MARY, data: rows(html)[0].buttons[0].callback_data, html }));
+
+    // Второго подтверждения копия не просит: оно уже получено.
+    assert.deepEqual(callsTo("sendRichMessage"), []);
+    const origin = lastCall("editMessageText").payload;
+    assert.equal(origin.chat_id, 10);
+    assert.equal(origin.message_id, 5);
+    assert.equal(origin.text, "🟢prod");
+  });
+
+  it("эфемерная копия правится своим методом: message_id у неё нет", async () => {
+    const { keyboard } = await takenBoard();
+    await handle(callback({ from: MARY, data: keyboard[0][0].callback_data, keyboard }));
+    const html = lastCall("sendRichMessage").payload.rich_message.html;
+
+    calls = [];
+    await handle(ephemeralCallback({ from: MARY, data: rows(html)[0].buttons[0].callback_data, html }));
+
+    const copy = lastCall("editEphemeralMessageText").payload;
+    assert.deepEqual(
+      { chat_id: copy.chat_id, receiver_user_id: copy.receiver_user_id, ephemeral_message_id: copy.ephemeral_message_id },
+      { chat_id: 10, receiver_user_id: MARY.id, ephemeral_message_id: 88 }
+    );
+    assert.equal(copy.message_id, undefined);
+    assert.match(copy.rich_message.html, /<h3>prod — освобождён<\/h3>/);
+    assert.equal(copy.rich_message.html.includes("<tg-button"), false);
+  });
+
+  it("закрытие эфемерной копии оставляет доску нетронутой", async () => {
+    const { keyboard } = await takenBoard();
+    await handle(callback({ from: MARY, data: keyboard[0][0].callback_data, keyboard }));
+    const html = lastCall("sendRichMessage").payload.rich_message.html;
+    const close = rows(html).at(-1).buttons[0];
+
+    calls = [];
+    await handle(ephemeralCallback({ from: MARY, data: close.callback_data, html }));
+
+    assert.deepEqual(callsTo("editMessageText"), []);
+    assert.match(lastCall("editEphemeralMessageText").payload.rich_message.html, /Копия закрыта/);
+  });
+
+  it("недоставленное подтверждение не выдаётся за освобождение", async () => {
+    const { keyboard } = await takenBoard();
+
+    stubTelegram((method) =>
+      method === "sendRichMessage" ? { ok: false, description: "bot was blocked" } : { ok: true }
+    );
+    await handle(callback({ from: MARY, data: keyboard[0][0].callback_data, keyboard }));
+
+    assert.deepEqual(callsTo("editMessageText"), []);
+    assert.equal(lastCall("answerCallbackQuery").payload.text, MESSAGES.takeoverFailed);
+  });
+
+  it("свой ресурс освобождается сразу, без подтверждения", async () => {
+    const { keyboard } = await takenBoard();
+
+    calls = [];
+    await handle(callback({ from: IVAN, data: keyboard[0][0].callback_data, keyboard }));
+
+    assert.deepEqual(callsTo("sendRichMessage"), []);
+    assert.equal(lastCall("editMessageText").payload.text, "🟢prod");
+  });
+
+  it("свободный ресурс занимается сразу", async () => {
+    const keyboard = await createBoardKeyboard("/create prod");
+
+    calls = [];
+    await handle(callback({ from: MARY, data: keyboard[0][0].callback_data, keyboard }));
+
+    assert.deepEqual(callsTo("sendRichMessage"), []);
+    assert.equal(lastCall("editMessageText").payload.text, "🏗️prod");
+  });
+
+  it("у старой кнопки без держателя подтверждения не спрашивают", async () => {
+    const keyboard = [
+      [{ text: "🏗️ prod", callback_data: '{"c":"free-prod"}' }],
+      [{ text: "⚡", callback_data: '{"c":"⚡","n":[]}' }],
+    ];
+
+    await handle(callback({ from: MARY, data: keyboard[0][0].callback_data, keyboard }));
+
+    assert.deepEqual(callsTo("sendRichMessage"), []);
+    assert.equal(lastCall("editMessageText").payload.text, "🟢prod");
+  });
+
+  it("в сгруппированной доске подтверждение спрашивают так же", async () => {
+    const command = "/board\ngroup/subgroup: 1 2";
+    await handle(message(command));
+    let html = lastCall("sendRichMessage").payload.rich_message.html;
+    await handle(richCallback({ data: rows(html)[0].buttons[0].callback_data, blocks: richBlocks(html), chatId: 10, messageId: 5 }));
+    html = lastCall("editMessageText").payload.rich_message.html;
+
+    calls = [];
+    await handle(
+      richCallback({ from: MARY, data: rows(html)[0].buttons[0].callback_data, blocks: richBlocks(html), chatId: 10, messageId: 5 })
+    );
+
+    assert.deepEqual(callsTo("editMessageText"), []);
+    const shown = lastCall("sendRichMessage").payload;
+    assert.equal(shown.chat_id, 10);
+    assert.equal(shown.ephemeral_message_parameters.receiver_user_id, MARY.id);
+    assert.match(shown.rich_message.html, /<code>group\/subgroup\/1<\/code> занимает Ivan/);
+    assert.match(shown.rich_message.html, /<h3>group\/subgroup<\/h3>/);
+    assert.equal(lastCall("answerCallbackQuery").payload.text, MESSAGES.takeoverAsked("Ivan"));
   });
 });
 
