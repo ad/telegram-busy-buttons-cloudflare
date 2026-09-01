@@ -4,8 +4,6 @@ send `/create name1 name2 nameN` to bot
 
 bot answers with message+buttons, now you can interact with it
 
-<img width="320" src="https://user-images.githubusercontent.com/35623/178100006-3d1de9be-4319-44f2-a239-e4f6da02689a.gif" />
-
 
 ### Demo
 
@@ -64,8 +62,6 @@ BOT_ADMIN = your_telegram_id
 BOT_TOKEN = ...
 
 BOT_DEBUG = true/false
-
-<img width="760" alt="image" src="https://github.com/user-attachments/assets/47e6469d-13d6-4538-9e78-f462086ec665">
 
 
 ### Set webhook
